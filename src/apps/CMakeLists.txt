@@ -101,12 +101,13 @@ foreach (_target ${RELION_TARGETS})
 	
     add_executable(${_target} ${_target}.cpp )
     set(LIB relion_lib)
+    set(LIBMPIP mpiP m bfd iberty unwind dl z)
 	
  	add_dependencies(${_target} relion_lib)
 	
 	set_target_properties(${_target} PROPERTIES PREFIX "relion_")
 	
-	target_link_libraries(${_target} ${LIB} ${FFTW_LIBRARIES} ${EXTRA_LIBS} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
+	target_link_libraries(${_target} ${LIB} ${LIBMPIP} ${FFTW_LIBRARIES} ${EXTRA_LIBS} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
 	
 	if(CUDA_FOUND)
 	    target_link_libraries(${_target} relion_gpu_util)
