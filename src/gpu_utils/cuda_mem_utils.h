@@ -37,8 +37,8 @@
                        LAUNCH_HANDLE_ERROR(status); \
                    }
 #else
-#define LAUNCH_HANDLE_ERROR( err ) (err) //Do nothing
-#define LAUNCH_PRIVATE_ERROR( err ) (err) //Do nothing
+#define LAUNCH_HANDLE_ERROR( err ) (0) //Do nothing
+#define LAUNCH_PRIVATE_ERROR( err ) (0) //Do nothing
 #endif
 
 #ifdef DEBUG_CUDA

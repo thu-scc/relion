@@ -468,14 +468,14 @@ class MlOptimiserCuda
 {
 public:
 	// transformer as holder for reuse of fftw_plans
-	FourierTransformer transformer;
+    std::vector<FourierTransformer> transformer;
 
    //Class streams ( for concurrent scheduling of class-specific kernels)
 	std::vector< cudaStream_t > classStreams;
 	cudaError_t errorStatus;
 
-	CudaFFT transformer1;
-	CudaFFT transformer2;
+    std::vector<CudaFFT> transformer1;
+	std::vector<CudaFFT> transformer2;
 
 	MlOptimiser *baseMLO;
 
@@ -494,8 +494,8 @@ public:
 
 	MlOptimiserCuda(MlOptimiser *baseMLOptimiser, MlDeviceBundle* bundle, const char * timing_fnm) :
 			baseMLO(baseMLOptimiser),
-			transformer1(cudaStreamPerThread, bundle->allocator, baseMLOptimiser->mymodel.data_dim),
-			transformer2(cudaStreamPerThread, bundle->allocator, baseMLOptimiser->mymodel.data_dim),
+//			transformer1(cudaStreamPerThread, bundle->allocator, baseMLOptimiser->mymodel.data_dim),
+//			transformer2(cudaStreamPerThread, bundle->allocator, baseMLOptimiser->mymodel.data_dim),
 			refIs3D(baseMLO->mymodel.ref_dim == 3),
 			dataIs3D(baseMLO->mymodel.data_dim == 3),
 			devBundle(bundle),

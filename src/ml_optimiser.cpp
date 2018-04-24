@@ -3000,7 +3000,7 @@ void MlOptimiser::expectationSomeParticles(long int my_first_ori_particle, long 
 	std::cerr << " exp_nr_images= " << exp_nr_images << std::endl;
 #endif
 
-	exp_ipart_ThreadTaskDistributor->resize(my_last_ori_particle - my_first_ori_particle + 1, 1);
+	exp_ipart_ThreadTaskDistributor->resize(my_last_ori_particle - my_first_ori_particle + 1, my_last_ori_particle - my_first_ori_particle + 1);
 	exp_ipart_ThreadTaskDistributor->reset();
     global_ThreadManager->run(globalThreadExpectationSomeParticles);
 
