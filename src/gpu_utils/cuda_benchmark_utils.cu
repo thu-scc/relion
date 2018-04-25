@@ -25,7 +25,9 @@ void relion_timer::cuda_cpu_tic(std::string id)
 	if (cuda_benchmark_find_id(id, cuda_cpu_benchmark_identifiers) == -1)
 	{
 		cuda_cpu_benchmark_identifiers.push_back(id);
-		cuda_cpu_benchmark_start_times.push_back(clock());
+        struct timeval start;
+        gettimeofday(&start, NULL);
+		cuda_cpu_benchmark_start_times.push_back(start);
 	}
 	else
 	{
@@ -44,10 +46,12 @@ void relion_timer::cuda_cpu_toc(std::string id)
 	}
 	else
 	{
-		clock_t t = clock() - cuda_cpu_benchmark_start_times[idx];
+        struct timeval end;
+        gettimeofday(&end, NULL);
+		float t = (float(end.tv_sec-cuda_cpu_benchmark_start_times[idx].tv_sec)*1e3+float(end.tv_usec-cuda_cpu_benchmark_start_times[idx].tv_usec)*1e-3);
 		cuda_cpu_benchmark_identifiers.erase(cuda_cpu_benchmark_identifiers.begin()+idx);
 		cuda_cpu_benchmark_start_times.erase(cuda_cpu_benchmark_start_times.begin()+idx);
-		fprintf(cuda_cpu_benchmark_fPtr,"%06.2f ms ......", (float)t / CLOCKS_PER_SEC * 1000.);
+		fprintf(cuda_cpu_benchmark_fPtr,"%06.2f ms ......", t);
 		for (int i = 1; i < cuda_cpu_benchmark_identifiers.size(); i++)
 			fprintf(cuda_cpu_benchmark_fPtr,"......");
 		fprintf(cuda_cpu_benchmark_fPtr," %s\n", id.c_str());

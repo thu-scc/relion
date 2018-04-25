@@ -11,6 +11,8 @@
 #include <time.h>
 #include <string>
 #include <sstream>
+#include <cassert>
+#include <sys/time.h>
 
 #ifdef TIMING_FILES
 #define	CTIC(timer,timing) (timer.cuda_cpu_tic(timing))
@@ -39,7 +41,7 @@ class relion_timer
 public:
 
 std::vector<std::string> cuda_cpu_benchmark_identifiers;
-std::vector<clock_t>     cuda_cpu_benchmark_start_times;
+std::vector<struct timeval>     cuda_cpu_benchmark_start_times;
 FILE *cuda_cpu_benchmark_fPtr;
 
 std::vector<std::string> cuda_gpu_benchmark_identifiers;
@@ -51,9 +53,15 @@ relion_timer(std::string fnm)
 {
 	std::stringstream fnm_cpu, fnm_gpu;
 	fnm_cpu << "output/" << fnm << "_cpu.dat";
-	cuda_cpu_benchmark_fPtr = fopen(fnm_cpu.str().c_str(),"a");
 	fnm_gpu << "output/" << fnm << "_gpu.dat";
-	cuda_gpu_benchmark_fPtr = fopen(fnm_gpu.str().c_str(),"a");
+	cuda_cpu_benchmark_fPtr = fopen(fnm_cpu.str().c_str(),"w");
+	cuda_gpu_benchmark_fPtr = fopen(fnm_gpu.str().c_str(),"w");
+
+    cuda_cpu_benchmark_identifiers.clear();
+    cuda_cpu_benchmark_start_times.clear();
+    cuda_gpu_benchmark_identifiers.clear();
+    cuda_gpu_benchmark_start_times.clear();
+    cuda_gpu_benchmark_stop_times.clear();
 }
 
 int cuda_benchmark_find_id(std::string id, std::vector<std::string> v);
