@@ -7,6 +7,11 @@ set(RELION_CMAKE_MINIMUM_REQUIRED_VERSION "2.8.12")
 #endif()
 project(Relion)
 
+include(FindOpenMP)
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+
 # Use new policy for OS X @rpath
 if(POLICY CMP0042)
     cmake_policy(SET CMP0042 NEW)

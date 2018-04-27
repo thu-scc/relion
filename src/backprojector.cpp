@@ -1164,7 +1164,12 @@ void BackProjector::reconstruct(MultidimArray<RFLOAT> &vol_out,
 	RCTOC(ReconTimer,ReconS_12);
 	RCTIC(ReconTimer,ReconS_13);
 	// Shift the map back to its origin
-	CenterFFT(vol_out, false);
+	int my_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+	if(my_rank == 1)
+		CenterFFT(vol_out, false, 12);
+	else
+		CenterFFT(vol_out, false);
 	RCTOC(ReconTimer,ReconS_13);
 	RCTIC(ReconTimer,ReconS_14);
 	// Un-normalize FFTW (because original FFTs were done with the size of 2D FFTs)
@@ -1761,7 +1766,12 @@ void BackProjector::windowToOridimRealSpace(FourierTransformer &transformer, Mul
 	// Shift the map back to its origin
 
 	RCTIC(OriDimTimer,OriDim6);
-	CenterFFT(Mout,true);
+	int my_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+	if(my_rank == 1)
+		CenterFFT(Mout,true,12);
+	else
+		CenterFFT(Mout,true);
 	RCTOC(OriDimTimer,OriDim6);
 #ifdef DEBUG_WINDOWORIDIMREALSPACE
 	tt()=Mout;

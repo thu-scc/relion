@@ -49,6 +49,8 @@
 #include <string.h>
 #include <math.h>
 
+mVector globalmVector;
+
 static pthread_mutex_t fftw_plan_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //#define DEBUG_PLANS
