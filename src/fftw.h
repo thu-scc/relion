@@ -46,7 +46,11 @@
 #ifndef __RELIONFFTW_H
 #define __RELIONFFTW_H
 
+#include <omp.h>
+#include <cstdlib>
 #include <fftw3.h>
+#include <cstring>
+#include <cassert>
 #include "src/multidim_array.h"
 #include "src/funcs.h"
 #include "src/tabfuncs.h"
@@ -128,6 +132,175 @@
  *     Vmag(k,i,j)=20*log10(abs(Vfft(k,i,j)));
  * @endcode
  */
+
+class mVector {
+public:
+ int curSize;
+ void* buffer;
+
+ mVector() {
+   curSize = 0;
+   buffer = NULL;
+   return;
+ }
+
+ ~mVector() {
+   if(buffer) {
+     free(buffer);
+   }
+   return;
+ }
+
+ void resize(int bytes) {
+   if(bytes > curSize) {
+     if(!curSize) curSize = 1;
+     while(curSize < bytes) {
+       curSize <<= 1;
+     }
+     if(buffer == NULL) {
+       buffer = malloc(curSize);
+     } else {
+       buffer = realloc(buffer, curSize);
+     }
+   }
+   return;
+ }
+};
+
+extern mVector globalmVector;
+
+/*
+
+template <typename T>
+void multiThreadmemcpy(char *dest, char *source, T bytes) {
+
+  assert(btyes >= 0);
+  # pragma omp parallel
+  {
+
+    int numThreads = omp_get_num_threads();
+    int tID = omp_get_thread_num();
+    int bytePerThread = bytes / numThreads;
+    int L = bytePerThread * tID;
+    int R = bytePerThread * (tID + 1);
+    if(tID == numThreads - 1) {
+      R = bytes;
+    }
+    memcpy(dest + L, source + L, R - L);
+  }
+  return;
+}
+
+*/
+
+template <typename T>
+void copyMDim(T* data, T *gData, int shift, int l, bool forward) {
+  if(forward) { // forward: v[i] = g[i - shift]
+
+    // [0, shift) = [l - shift, l), len = shift
+    memcpy((char *)data, (char *)(gData + l - shift), shift * sizeof(T));
+
+    // [shift, l) = [0, l - shift), len = l - shift
+    memcpy((char *)(data + shift),(char *)gData, (l - shift) * sizeof(T));
+
+  } else { // !forward: v[i] = g[i + shift]
+
+    // [0, l - shift) = [shift, l), len = l - shift
+    memcpy((char *)data, (char *)(gData + shift), (l - shift) * sizeof(T));
+
+    // [l - shift, l) = [0, shift), len = shift
+    memcpy((char *)(data + l - shift), (char *)gData, shift * sizeof(T));
+
+  }
+  return;
+}
+
+template <typename T>
+void copyMDim0(T* data, T *gData, int shift, int l, bool forward) {
+  if(forward) { // forward: v[i] = g[i - shift]
+
+    // [0, shift) = [l - shift, l), len = shift
+    memcpy((void *)data, (void *)(gData + l - shift), shift * sizeof(T));
+
+    // [shift, l) = [0, l - shift), len = l - shift
+    memcpy((void *)(data + shift), (void *)gData, (l - shift) * sizeof(T));
+
+  } else { // !forward: v[i] = g[i + shift]
+
+    // [0, l - shift) = [shift, l), len = l - shift
+    memcpy((void *)data, (void *)(gData + shift), (l - shift) * sizeof(T));
+
+    // [l - shift, l) = [0, shift), len = shift
+    memcpy((void *)(data + l - shift), (void *)gData, shift * sizeof(T));
+
+  }
+  return;
+}
+
+template <typename T>
+void d1_CenterFFT(MultidimArray<T> &v, bool forward) {
+  int l, shift;
+  l = XSIZE(v);
+  shift = l >> 1;
+
+  memcpy((char *)globalmVector.buffer, (char *)v.data, XSIZE(v) * sizeof(T));
+
+  copyMDim(v.data, (T*) globalmVector.buffer, shift, l, forward);
+  return;
+}
+
+template <typename T>
+void d2_CenterFFT(MultidimArray<T> &v, bool forward) {
+  int xl, yl;
+  int xshift, yshift;
+  xl = XSIZE(v), yl = YSIZE(v);
+  xshift = xl >> 1, yshift = yl >> 1;
+
+  memcpy((char *)globalmVector.buffer, (char *)v.data, YXSIZE(v) * sizeof(T));
+  T* gData = (T*) globalmVector.buffer;
+
+  if(!forward)
+    yshift = - yshift;
+
+  for(int i = 0; i < YSIZE(v); ++ i) {
+    int im = i - yshift;
+    if(im < 0) im += yl;
+    if(im >= yl) im -= yl;
+    copyMDim0(v.data + i * XSIZE(v), gData + im * XSIZE(v), xshift, xl, forward);
+  }
+
+  return;
+}
+
+template <typename T>
+void d3_CenterFFT(MultidimArray<T> &v, bool forward) {
+  int xl, yl, zl;
+  int xshift, yshift, zshift;
+  xl = XSIZE(v), yl = YSIZE(v), zl = ZSIZE(v);
+  xshift = xl >> 1, yshift = yl >> 1, zshift = zl >> 1;
+
+  memcpy((char *)globalmVector.buffer, (char *)v.data, ZYXSIZE(v) * sizeof(T));
+  T* gData = (T*) globalmVector.buffer;
+
+  if(!forward) {
+    yshift = - yshift;
+    zshift = - zshift;
+  }
+
+  for(int i = 0; i < ZSIZE(v); ++ i) {
+    int im = i - zshift;
+    if(im < 0) im += zl;
+    if(im >= zl) im -= zl;
+    for(int j = 0; j < YSIZE(v); ++ j) {
+      int jm = j - yshift;
+      if(jm < 0) jm += yl;
+      if(jm >= yl) jm -= yl;
+      copyMDim0(v.data + i * YXSIZE(v) + j * XSIZE(v), gData + im * YXSIZE(v) + jm * XSIZE(v), xshift, xl, forward);
+    }
+  }
+  return;
+}
+
 class FourierTransformer
 {
 public:
@@ -371,200 +544,28 @@ void randomizePhasesBeyond(MultidimArray<RFLOAT> &I, int index);
  *
  */
 template <typename T>
-void CenterFFT(MultidimArray< T >& v, bool forward)
-{
-    if ( v.getDim() == 1 )
-    {
-        // 1D
-        MultidimArray< T > aux;
-        int l, shift;
-
-        l = XSIZE(v);
-        aux.reshape(l);
-        shift = (int)(l / 2);
-
-        if (!forward)
-            shift = -shift;
-
-        // Shift the input in an auxiliar vector
-        for (int i = 0; i < l; i++)
-        {
-            int ip = i + shift;
-
-            if (ip < 0)
-                ip += l;
-            else if (ip >= l)
-                ip -= l;
-
-            aux(ip) = DIRECT_A1D_ELEM(v, i);
-        }
-
-        // Copy the vector
-        for (int i = 0; i < l; i++)
-            DIRECT_A1D_ELEM(v, i) = DIRECT_A1D_ELEM(aux, i);
-    }
-    else if ( v.getDim() == 2 )
-    {
-        // 2D
-        MultidimArray< T > aux;
-        int l, shift;
-
-        // Shift in the X direction
-        l = XSIZE(v);
-        aux.reshape(l);
-        shift = (int)(l / 2);
-
-        if (!forward)
-            shift = -shift;
-
-        for (int i = 0; i < YSIZE(v); i++)
-        {
-            // Shift the input in an auxiliar vector
-            for (int j = 0; j < l; j++)
-            {
-                int jp = j + shift;
-
-                if (jp < 0)
-                    jp += l;
-                else if (jp >= l)
-                    jp -= l;
-
-                aux(jp) = DIRECT_A2D_ELEM(v, i, j);
-            }
-
-            // Copy the vector
-            for (int j = 0; j < l; j++)
-                DIRECT_A2D_ELEM(v, i, j) = DIRECT_A1D_ELEM(aux, j);
-        }
-
-        // Shift in the Y direction
-        l = YSIZE(v);
-        aux.reshape(l);
-        shift = (int)(l / 2);
-
-        if (!forward)
-            shift = -shift;
-
-        for (int j = 0; j < XSIZE(v); j++)
-        {
-            // Shift the input in an auxiliar vector
-            for (int i = 0; i < l; i++)
-            {
-                int ip = i + shift;
-
-                if (ip < 0)
-                    ip += l;
-                else if (ip >= l)
-                    ip -= l;
-
-                aux(ip) = DIRECT_A2D_ELEM(v, i, j);
-            }
-
-            // Copy the vector
-            for (int i = 0; i < l; i++)
-                DIRECT_A2D_ELEM(v, i, j) = DIRECT_A1D_ELEM(aux, i);
-        }
-    }
-    else if ( v.getDim() == 3 )
-    {
-        // 3D
-        MultidimArray< T > aux;
-        int l, shift;
-
-        // Shift in the X direction
-        l = XSIZE(v);
-        aux.reshape(l);
-        shift = (int)(l / 2);
-
-        if (!forward)
-            shift = -shift;
-
-        for (int k = 0; k < ZSIZE(v); k++)
-            for (int i = 0; i < YSIZE(v); i++)
-            {
-                // Shift the input in an auxiliar vector
-                for (int j = 0; j < l; j++)
-                {
-                    int jp = j + shift;
-
-                    if (jp < 0)
-                        jp += l;
-                    else if (jp >= l)
-                        jp -= l;
-
-                    aux(jp) = DIRECT_A3D_ELEM(v, k, i, j);
-                }
-
-                // Copy the vector
-                for (int j = 0; j < l; j++)
-                    DIRECT_A3D_ELEM(v, k, i, j) = DIRECT_A1D_ELEM(aux, j);
-            }
-
-        // Shift in the Y direction
-        l = YSIZE(v);
-        aux.reshape(l);
-        shift = (int)(l / 2);
-
-        if (!forward)
-            shift = -shift;
-
-        for (int k = 0; k < ZSIZE(v); k++)
-            for (int j = 0; j < XSIZE(v); j++)
-            {
-                // Shift the input in an auxiliar vector
-                for (int i = 0; i < l; i++)
-                {
-                    int ip = i + shift;
-
-                    if (ip < 0)
-                        ip += l;
-                    else if (ip >= l)
-                        ip -= l;
-
-                    aux(ip) = DIRECT_A3D_ELEM(v, k, i, j);
-                }
-
-                // Copy the vector
-                for (int i = 0; i < l; i++)
-                    DIRECT_A3D_ELEM(v, k, i, j) = DIRECT_A1D_ELEM(aux, i);
-            }
-
-        // Shift in the Z direction
-        l = ZSIZE(v);
-        aux.reshape(l);
-        shift = (int)(l / 2);
-
-        if (!forward)
-            shift = -shift;
-
-        for (int i = 0; i < YSIZE(v); i++)
-            for (int j = 0; j < XSIZE(v); j++)
-            {
-                // Shift the input in an auxiliar vector
-                for (int k = 0; k < l; k++)
-                {
-                    int kp = k + shift;
-                    if (kp < 0)
-                        kp += l;
-                    else if (kp >= l)
-                        kp -= l;
-
-                    aux(kp) = DIRECT_A3D_ELEM(v, k, i, j);
-                }
-
-                // Copy the vector
-                for (int k = 0; k < l; k++)
-                    DIRECT_A3D_ELEM(v, k, i, j) = DIRECT_A1D_ELEM(aux, k);
-            }
-    }
-    else
-    {
-    	v.printShape();
-    	REPORT_ERROR("CenterFFT ERROR: Dimension should be 1, 2 or 3");
-    }
+void CenterFFT(MultidimArray<T> &v, bool forward) {
+  // omp_set_num_threads(1);
+//  std:: cerr << "going into CenterFFT()" << std:: endl;
+ switch (v.getDim()) {
+   case 1:
+     globalmVector.resize(XSIZE(v) * sizeof(T));
+     d1_CenterFFT(v, forward);
+     break;
+   case 2:
+     globalmVector.resize(YXSIZE(v) * sizeof(T));
+     d2_CenterFFT(v, forward);
+     break;
+   case 3:
+     globalmVector.resize(ZYXSIZE(v) * sizeof(T));
+     d3_CenterFFT(v, forward);
+     break;
+   default:
+     v.printShape();
+     REPORT_ERROR("CenterFFT ERROR: Dimension should be 1, 2 or 3");
+ }
+ return;
 }
-
-
 
 // Window an FFTW-centered Fourier-transform to a given size
 template<class T>

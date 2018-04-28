@@ -53,6 +53,8 @@ static pthread_mutex_t fftw_plan_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //#define DEBUG_PLANS
 
+mVector globalmVector;
+
 // Constructors and destructors --------------------------------------------
 FourierTransformer::FourierTransformer():
 		plans_are_set(false)
