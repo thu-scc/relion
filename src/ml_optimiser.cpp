@@ -5624,11 +5624,13 @@ void MlOptimiser::getAllSquaredDifferences(long int my_ori_particle, int ibody, 
 												// Negative values because smaller is worse in this case
 												diff2 = 0.;
 												RFLOAT suma2 = 0.;
+                                                                                                Complex *opp;
 												FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(Frefctf)
 												{
 													diff2 -= (DIRECT_MULTIDIM_ELEM(Frefctf, n)).real * (*(Fimg_shift + n)).real;
-												    diff2 -= (DIRECT_MULTIDIM_ELEM(Frefctf, n)).imag * (*(Fimg_shift + n)).imag;
-													suma2 += norm(DIRECT_MULTIDIM_ELEM(Frefctf, n));
+												        diff2 -= (DIRECT_MULTIDIM_ELEM(Frefctf, n)).imag * (*(Fimg_shift + n)).imag;
+													opp = & DIRECT_MULTIDIM_ELEM(Frefctf, n);
+                                                                                                        suma2 += opp -> real * opp -> real + opp -> imag * opp -> imag;
 												}
 												// Normalised cross-correlation coefficient: divide by power of reference (power of image is a constant)
 												diff2 /= sqrt(suma2) * exp_local_sqrtXi2[ipart];
