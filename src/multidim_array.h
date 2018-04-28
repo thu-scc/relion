@@ -494,6 +494,15 @@ public:
     // Number of elements in NZYX in allocated memory
     long int nzyxdimAlloc;
 
+    void *operator new(size_t size) {
+      return aligned_alloc(size, 64);
+    }
+
+    void operator delete(void *ptr) {
+      free(ptr);
+      return;
+    }
+
 public:
     /// @name Constructors
     //@{
@@ -1081,6 +1090,7 @@ public:
      * V1.resize(3, 3, 2);
      * @endcode
      */
+
     void resize(long int Ndim, long int Zdim, long int Ydim, long int Xdim)
     {
         if (Ndim*Zdim*Ydim*Xdim == nzyxdimAlloc && data != NULL)
@@ -1141,23 +1151,20 @@ public:
             REPORT_ERROR( "Allocate: No space left");
         }
 
-        // Copy needed elements, fill with 0 if necessary
-        for (long int l = 0; l < Ndim; l++)
-            for (long int k = 0; k < Zdim; k++)
-                for (long int i = 0; i < Ydim; i++)
-                    for (long int j = 0; j < Xdim; j++)
-                    {
-                        T val;
-                        if (k >= ZSIZE(*this))
-                            val = 0;
-                        else if (i >= YSIZE(*this))
-                            val = 0;
-                        else if (j >= XSIZE(*this))
-                            val = 0;
-                        else
-                            val = DIRECT_A3D_ELEM(*this, k, i, j);
-                        new_data[l*ZYXdim + k*YXdim+i*Xdim+j] = val;
-                    }
+        memset(new_data, 0, sizeof(T) * Ndim * ZYXdim);
+        int mZ = std:: min(ZSIZE(*this), Zdim);
+        int mY = std:: min(YSIZE(*this), Ydim);
+        int mX = std:: min(XSIZE(*this), Xdim);
+        for(long int l = 0; l < Ndim; ++ l) {
+          for(long int k = 0; k < mZ; ++ k) {
+            for(long int i = 0; i < mY; ++ i) {
+              # pragma ivdep
+              for(long int j = 0; j < mX; ++ j) {
+                new_data[l * ZYXdim + k * YXdim + i * Xdim + j] = DIRECT_A3D_ELEM(*this, k, i, j);
+              }
+            }
+          }
+        }
 
         // deallocate old vector
         coreDeallocate();
@@ -1424,6 +1431,7 @@ public:
     void window(MultidimArray<T> &result, long int y0, long int x0, long int yF, long int xF, T init_value = 0, long n = 0) const
     {
         result.resize(yF - y0 + 1, xF - x0 + 1);
+    # define VectorSize 512
         STARTINGY(result) = y0;
         STARTINGX(result) = x0;
 

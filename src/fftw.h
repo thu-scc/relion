@@ -51,6 +51,7 @@
 #include <cstdlib>
 #include <fftw3.h>
 #include <cstring>
+#include <cassert>
 #include "src/multidim_array.h"
 #include "src/funcs.h"
 #include "src/tabfuncs.h"
@@ -135,7 +136,7 @@
 
 class mVector {
 public:
- size_t curSize;
+ int curSize;
  void* buffer;
 
  mVector() {
@@ -151,7 +152,7 @@ public:
    return;
  }
 
- void resize(size_t bytes) {
+ void resize(int bytes) {
    if(bytes > curSize) {
      if(!curSize) curSize = 1;
      while(curSize < bytes) {
@@ -169,9 +170,12 @@ public:
 
 extern mVector globalmVector;
 
+/*
+
 template <typename T>
 void multiThreadmemcpy(char *dest, char *source, T bytes) {
- 
+
+  assert(btyes >= 0);
   # pragma omp parallel
   {
 
@@ -188,23 +192,25 @@ void multiThreadmemcpy(char *dest, char *source, T bytes) {
   return;
 }
 
+*/
+
 template <typename T>
 void copyMDim(T* data, T *gData, int shift, int l, bool forward) {
   if(forward) { // forward: v[i] = g[i - shift]
 
     // [0, shift) = [l - shift, l), len = shift
-    multiThreadmemcpy((char *)data, (char *)(gData + l - shift), shift * sizeof(T));
+    memcpy((char *)data, (char *)(gData + l - shift), shift * sizeof(T));
 
     // [shift, l) = [0, l - shift), len = l - shift
-    multiThreadmemcpy((char *)(data + shift),(char *)gData, (l - shift) * sizeof(T));
+    memcpy((char *)(data + shift),(char *)gData, (l - shift) * sizeof(T));
 
   } else { // !forward: v[i] = g[i + shift]
 
     // [0, l - shift) = [shift, l), len = l - shift
-    multiThreadmemcpy((char *)data, (char *)(gData + shift), (l - shift) * sizeof(T));
+    memcpy((char *)data, (char *)(gData + shift), (l - shift) * sizeof(T));
 
     // [l - shift, l) = [0, shift), len = shift
-    multiThreadmemcpy((char *)(data + l - shift), (char *)gData, shift * sizeof(T));
+    memcpy((char *)(data + l - shift), (char *)gData, shift * sizeof(T));
 
   }
   return;
@@ -238,7 +244,7 @@ void d1_CenterFFT(MultidimArray<T> &v, bool forward) {
   l = XSIZE(v);
   shift = l >> 1;
 
-  multiThreadmemcpy((char *)globalmVector.buffer, (char *)v.data, XSIZE(v) * sizeof(T));
+  memcpy((char *)globalmVector.buffer, (char *)v.data, XSIZE(v) * sizeof(T));
 
   copyMDim(v.data, (T*) globalmVector.buffer, shift, l, forward);
   return;
@@ -251,14 +257,12 @@ void d2_CenterFFT(MultidimArray<T> &v, bool forward) {
   xl = XSIZE(v), yl = YSIZE(v);
   xshift = xl >> 1, yshift = yl >> 1;
 
-  multiThreadmemcpy((char *)globalmVector.buffer, (char *)v.data, YXSIZE(v) * sizeof(T));
+  memcpy((char *)globalmVector.buffer, (char *)v.data, YXSIZE(v) * sizeof(T));
   T* gData = (T*) globalmVector.buffer;
 
   if(!forward)
     yshift = - yshift;
 
-
-  # pragma omp parallel for
   for(int i = 0; i < YSIZE(v); ++ i) {
     int im = i - yshift;
     if(im < 0) im += yl;
@@ -276,7 +280,7 @@ void d3_CenterFFT(MultidimArray<T> &v, bool forward) {
   xl = XSIZE(v), yl = YSIZE(v), zl = ZSIZE(v);
   xshift = xl >> 1, yshift = yl >> 1, zshift = zl >> 1;
 
-  multiThreadmemcpy((char *)globalmVector.buffer, (char *)v.data, ZYXSIZE(v) * sizeof(T));
+  memcpy((char *)globalmVector.buffer, (char *)v.data, ZYXSIZE(v) * sizeof(T));
   T* gData = (T*) globalmVector.buffer;
 
   if(!forward) {
@@ -284,7 +288,6 @@ void d3_CenterFFT(MultidimArray<T> &v, bool forward) {
     zshift = - zshift;
   }
 
-  # pragma omp parallel for
   for(int i = 0; i < ZSIZE(v); ++ i) {
     int im = i - zshift;
     if(im < 0) im += zl;
