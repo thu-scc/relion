@@ -1158,6 +1158,7 @@ public:
         for(long int l = 0; l < Ndim; ++ l) {
           for(long int k = 0; k < mZ; ++ k) {
             for(long int i = 0; i < mY; ++ i) {
+              # pragma ivdep
               for(long int j = 0; j < mX; ++ j) {
                 new_data[l * ZYXdim + k * YXdim + i * Xdim + j] = DIRECT_A3D_ELEM(*this, k, i, j);
               }
