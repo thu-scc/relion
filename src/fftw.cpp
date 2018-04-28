@@ -806,7 +806,8 @@ void shiftImageInFourierTransform(MultidimArray<Complex > &in,
 			return;
 		}
 		for (long int i=0; i<XSIZE(in); i++)
-			for (long int j=0; j<XSIZE(in); j++)
+	              # pragma ivdep	
+                      for (long int j=0; j<XSIZE(in); j++)
 			{
 				x = j;
 				y = i;
@@ -826,6 +827,7 @@ void shiftImageInFourierTransform(MultidimArray<Complex > &in,
 		for (long int i=YSIZE(in)-1; i>=XSIZE(in); i--)
 		{
 			y = i - YSIZE(in);
+                        # pragma ivdep
 			for (long int j=0; j<XSIZE(in); j++)
 			{
 				x = j;
