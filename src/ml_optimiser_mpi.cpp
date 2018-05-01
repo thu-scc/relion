@@ -406,14 +406,14 @@ void MlOptimiserMpi::initialise()
 					size_t t = b->checkFixedSizedObjects(cudaDeviceShares[i]);
 					boxLim = ((t < boxLim) ? t : boxLim );
 				}
-				node->relion_MPI_Send(&boxLim, sizeof(size_t), MPI_INT, 0, MPITAG_INT, MPI_COMM_WORLD);
+				node->relion_MPI_Send(&boxLim, sizeof(size_t), MPI_CHAR, 0, MPITAG_INT, MPI_COMM_WORLD);
 			}
 			else
 			{
 				size_t boxLim, LowBoxLim(10000);
 				for(int slave = 1; slave < node->size; slave++)
 				{
-					node->relion_MPI_Recv(&boxLim, sizeof(size_t), MPI_INT, slave, MPITAG_INT, MPI_COMM_WORLD, status);
+					node->relion_MPI_Recv(&boxLim, sizeof(size_t), MPI_CHAR, slave, MPITAG_INT, MPI_COMM_WORLD, status);
 					LowBoxLim = (boxLim < LowBoxLim ? boxLim : LowBoxLim );
 				}
 
