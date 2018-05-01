@@ -18,6 +18,9 @@
  * author citations must be preserved.
  ***************************************************************************/
 #include "src/exp_model.h"
+#include "timepoint.h"
+#include "pacman.h"
+#include <cassert>
 #include <sys/statvfs.h>
 
 void ExpOriginalParticle::addParticle(long int _particle_id, int _random_subset, int _order)
@@ -802,7 +805,6 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 		bool do_ignore_group_name, bool do_preread_images,
 		bool need_tiltpsipriors_for_helical_refine)
 {
-
 //#define DEBUG_READ
 #ifdef DEBUG_READ
 	std::cerr << "Entering Experiment::read" << std::endl;
@@ -820,6 +822,9 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 	timer.tic(tread);
 #endif
 
+    TIME_POINT_INIT(read);
+    TIME_POINT(read);
+
 	// Only open stacks once and then read multiple images
 	fImageHandler hFile;
 	long int dump;
@@ -829,8 +834,13 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 	clear();
 	long int group_id, mic_id, part_id;
 
+    TIME_POINT(read);
+
 	if (!fn_exp.isStarFile())
 	{
+        TIME_POINT_INIT(read_if);
+        TIME_POINT(read_if);
+
 		// Read images from stack. Ignore all metadata, just use filenames
 		// Add a single Micrograph
 		group_id = addGroup("group");
@@ -840,13 +850,20 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 		if (fn_exp.contains(".mrc") && !fn_exp.contains(".mrcs"))
 			REPORT_ERROR("Experiment::read: ERROR: MRC stacks of 2D images should be have extension .mrcs, not .mrc!");
 
+        TIME_POINT(read_if);
+
 		// Read in header-only information to get the NSIZE of the stack
 		Image<RFLOAT> img;
 		img.read(fn_exp, false); // false means skip data, only read header
 
+        TIME_POINT(read_if);
+
 		// allocate 1 block of memory
 		particles.reserve(NSIZE(img()));
 		ori_particles.reserve(NSIZE(img()));
+
+        TIME_POINT(read_if);
+
 		for (long int n = 0; n <  NSIZE(img()); n++)
 		{
 			FileName fn_img;
@@ -873,11 +890,17 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 			MDimg.setValue(EMDL_IMAGE_NAME, fn_img, part_id);
 		}
 
+        TIME_POINT(read_if);
 	}
 	else
 	{
+        TIME_POINT_INIT(read_else);
+        TIME_POINT(read_else);
+
 		// Just read first data block
 		MDimg.read(fn_exp);
+
+        TIME_POINT(read_else);
 
 		// If this for movie-processing, then the STAR file might be a list of STAR files with original movie particles.
 		// If that is the case: then just append all into a new MDimg.
@@ -893,6 +916,8 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 			}
 			MDimg = MDjoined;
 		}
+
+        TIME_POINT(read_else);
 
 #ifdef DEBUG_READ
 		std::cerr << "Done reading MDimg" << std::endl;
@@ -930,6 +955,9 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 			group_id = addGroup("group");
 			mic_id = addMicrograph("micrograph");
 		}
+
+        TIME_POINT(read_else);
+
 #ifdef DEBUG_READ
 	std::cerr << "Done sorting MDimg" << std::endl;
 	std::cerr << " MDimg.numberOfObjects()= " << MDimg.numberOfObjects() << std::endl;
@@ -939,6 +967,8 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 #endif
 		// allocate 1 block of memory
 		particles.reserve(MDimg.numberOfObjects());
+
+        TIME_POINT(read_else);
 
 		// Now Loop over all objects in the metadata file and fill the logical tree of the experiment
 		long int last_oripart_idx = -1;
@@ -1033,6 +1063,7 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 
 			if (do_preread_images)
 			{
+                std::cout << "part_id = " << part_id << std::endl;
 				FileName fn_img;
 				MDimg.getValue(EMDL_IMAGE_NAME, fn_img);
 				Image<float> img;
@@ -1102,6 +1133,8 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 #endif
 		} // end loop over all objects in MDimg
 
+        TIME_POINT(read_else);
+
 #ifdef DEBUG_READ
 		timer.toc(tfill);
 		timer.tic(tdef);
@@ -1126,10 +1159,15 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 				is_done = true;
 			}
 		}
+
+        TIME_POINT(read_else);
+
 		// Even if we don't do multi-body refinement, then nr_bodies is still 1
 		nr_bodies = XMIPP_MAX(nr_bodies, 1);
 
 	}
+
+    TIME_POINT(read);
 
 #ifdef DEBUG_READ
 	std::cerr << "Done filling MDimg" << std::endl;
@@ -1161,6 +1199,7 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 				REPORT_ERROR("exp_model.cpp: Experiment::read(): Tilt and psi priors of helical segments are missing!");
 		}
 	}
+    TIME_POINT(read);
 	FOR_ALL_OBJECTS_IN_METADATA_TABLE(MDimg)
 	{
 		RFLOAT dzero=0., done=1.;
@@ -1196,6 +1235,7 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 			}
 		}
 	}
+    TIME_POINT(read);
 
 #ifdef DEBUG_READ
 	timer.toc(tdef);
@@ -1234,6 +1274,527 @@ void Experiment::read(FileName fn_exp, bool do_ignore_original_particle_name,
 	{
 		REPORT_ERROR("There are no images read in: please check your input file...");
 	}
+
+    TIME_POINT(read);
+
+	// Order the particles in each ori_particle (only useful for realignment of movie frames)
+	orderParticlesInOriginalParticles();
+
+#ifdef DEBUG_READ
+	timer.toc(tend);
+	timer.toc(tall);
+	timer.printTimes(false);
+	//std::cerr << "Writing out debug_data.star" << std::endl;
+	//write("debug");
+	//exit(0);
+#endif
+}
+
+void Experiment::read_parallel(FileName fn_exp, bool do_ignore_original_particle_name,
+		bool do_ignore_group_name, bool do_preread_images,
+		bool need_tiltpsipriors_for_helical_refine)
+{
+//#define DEBUG_READ
+#ifdef DEBUG_READ
+	std::cerr << "Entering Experiment::read" << std::endl;
+	Timer timer;
+	int tall = timer.setNew("ALL");
+	int tread = timer.setNew("read");
+	int tsort = timer.setNew("sort");
+	int tfill = timer.setNew("fill");
+	int tgroup = timer.setNew("find group");
+	int tori = timer.setNew("find ori_particle");
+	int tdef = timer.setNew("set defaults");
+	int tend = timer.setNew("ending");
+	char c;
+	timer.tic(tall);
+	timer.tic(tread);
+#endif
+
+    TIME_POINT_INIT(read);
+    TIME_POINT(read);
+
+	// Only open stacks once and then read multiple images
+	fImageHandler hFile;
+	long int dump;
+	FileName fn_stack, fn_open_stack="";
+
+	// Initialize by emptying everything
+	clear();
+	long int group_id, mic_id, part_id;
+
+    TIME_POINT(read);
+
+	if (!fn_exp.isStarFile())
+	{
+        TIME_POINT_INIT(read_if);
+        TIME_POINT(read_if);
+
+		// Read images from stack. Ignore all metadata, just use filenames
+		// Add a single Micrograph
+		group_id = addGroup("group");
+		mic_id = addMicrograph("micrograph");
+
+		// Check that a MRC stack ends in .mrcs, not .mrc (which will be read as a MRC 3D map!)
+		if (fn_exp.contains(".mrc") && !fn_exp.contains(".mrcs"))
+			REPORT_ERROR("Experiment::read: ERROR: MRC stacks of 2D images should be have extension .mrcs, not .mrc!");
+
+        TIME_POINT(read_if);
+
+		// Read in header-only information to get the NSIZE of the stack
+		Image<RFLOAT> img;
+		img.read(fn_exp, false); // false means skip data, only read header
+
+        TIME_POINT(read_if);
+
+		// allocate 1 block of memory
+		particles.reserve(NSIZE(img()));
+		ori_particles.reserve(NSIZE(img()));
+
+        TIME_POINT(read_if);
+
+		for (long int n = 0; n <  NSIZE(img()); n++)
+		{
+			FileName fn_img;
+			fn_img.compose(n+1, fn_exp); // fn_img = integerToString(n) + "@" + fn_exp;
+			// Add the particle to my_area = 0
+			part_id = addParticle(group_id, mic_id);
+			MDimg.addObject();
+			if (do_preread_images)
+			{
+				Image<float> img;
+				fn_img.decompose(dump, fn_stack);
+				if (fn_stack != fn_open_stack)
+				{
+					hFile.openFile(fn_stack, WRITE_READONLY);
+					fn_open_stack = fn_stack;
+				}
+				img.readFromOpenFile(fn_img, hFile, -1, false);
+				img().setXmippOrigin();
+				particles[part_id].img = img();
+			}
+			// Also add OriginalParticle
+			(ori_particles[addOriginalParticle("particle")]).addParticle(part_id, 0, -1);
+			// Set the filename and other metadata parameters
+			MDimg.setValue(EMDL_IMAGE_NAME, fn_img, part_id);
+		}
+
+        TIME_POINT(read_if);
+	}
+	else
+	{
+        TIME_POINT_INIT(read_else);
+        TIME_POINT(read_else);
+
+		// Just read first data block
+		MDimg.read(fn_exp);
+
+        TIME_POINT(read_else);
+
+		// If this for movie-processing, then the STAR file might be a list of STAR files with original movie particles.
+		// If that is the case: then just append all into a new MDimg.
+		if (MDimg.containsLabel(EMDL_STARFILE_MOVIE_PARTICLES))
+		{
+			MetaDataTable MDjoined, MDone;
+			FOR_ALL_OBJECTS_IN_METADATA_TABLE(MDimg)
+			{
+				FileName fn_star;
+				MDimg.getValue(EMDL_STARFILE_MOVIE_PARTICLES, fn_star);
+				MDone.read(fn_star);
+				MDjoined.append(MDone);
+			}
+			MDimg = MDjoined;
+		}
+
+        TIME_POINT(read_else);
+
+#ifdef DEBUG_READ
+		std::cerr << "Done reading MDimg" << std::endl;
+		timer.toc(tread);
+		timer.tic(tsort);
+		//std::cerr << "Press any key to continue..." << std::endl;
+		//std::cin >> c;
+#endif
+
+		// Sort input particles on micrographname
+		bool is_mic_a_movie=false, star_contains_micname;
+		star_contains_micname = MDimg.containsLabel(EMDL_MICROGRAPH_NAME);
+		if (star_contains_micname)
+		{
+			// See if the micrograph names contain an "@", i.e. whether they are movies and we are inside polishing or so.
+			FileName fn_mic;
+			MDimg.getValue(EMDL_MICROGRAPH_NAME, fn_mic);
+			if (fn_mic.contains("@"))
+			{
+				is_mic_a_movie = true;
+				MDimg.newSort(EMDL_MICROGRAPH_NAME, false, true); // sort on part AFTER "@"
+			}
+			else
+			{
+				is_mic_a_movie = false;
+				MDimg.newSort(EMDL_MICROGRAPH_NAME); // just sort on fn_mic
+			}
+
+			if (do_ignore_group_name)
+				group_id = addGroup("group");
+		}
+		else
+		{
+			// If there is no EMDL_MICROGRAPH_NAME, then just use a single group and micrograph
+			group_id = addGroup("group");
+			mic_id = addMicrograph("micrograph");
+		}
+
+        TIME_POINT(read_else);
+
+#ifdef DEBUG_READ
+	std::cerr << "Done sorting MDimg" << std::endl;
+	std::cerr << " MDimg.numberOfObjects()= " << MDimg.numberOfObjects() << std::endl;
+	timer.toc(tsort);
+	timer.tic(tfill);
+	long nr_read = 0;
+#endif
+		// allocate 1 block of memory
+		particles.reserve(MDimg.numberOfObjects());
+
+        TIME_POINT(read_else);
+
+		// Now Loop over all objects in the metadata file and fill the logical tree of the experiment
+		long int last_oripart_idx = -1;
+		FOR_ALL_OBJECTS_IN_METADATA_TABLE(MDimg)
+		{
+			// Add new micrographs or get mic_id for existing micrograph
+			FileName mic_name=""; // Filename instead of string because will decompose below
+			if (star_contains_micname)
+			{
+				long int idx = micrographs.size();
+				std::string last_mic_name = (idx > 0) ? micrographs[idx-1].name : "";
+
+				MDimg.getValue(EMDL_MICROGRAPH_NAME, mic_name);
+
+				// All frames of a movie belong to the same micrograph
+				if (is_mic_a_movie)
+					mic_name = mic_name.substr(mic_name.find("@")+1);
+
+				mic_id = -1;
+				if (last_mic_name == mic_name)
+				{
+					// This particle belongs to the previous micrograph
+					mic_id = micrographs[idx - 1].id;
+				}
+				else
+				{
+					// A new micrograph
+					last_oripart_idx = ori_particles.size();
+				}
+
+				// Make a new micrograph
+				if (mic_id < 0)
+					mic_id = addMicrograph(mic_name);
+
+#ifdef DEBUG_READ
+				timer.tic(tgroup);
+#endif
+
+				// For example in particle_polishing the groups are not needed...
+				if (!do_ignore_group_name)
+				{
+					std::string group_name;
+					// Check whether there is a group label, if not use a group for each micrograph
+					if (MDimg.containsLabel(EMDL_MLMODEL_GROUP_NAME))
+					{
+						MDimg.getValue(EMDL_MLMODEL_GROUP_NAME, group_name);
+					}
+					else
+					{
+						FileName fn_pre, fn_jobnr, fn_post;
+						decomposePipelineFileName(mic_name, fn_pre, fn_jobnr, fn_post);
+						group_name = fn_post;
+					}
+
+					// If this group did not exist yet, add it to the experiment
+					group_id = -1;
+					for (long int i = groups.size() - 1; i >= 0; i--) // search backwards to find match faster
+					{
+						if (groups[i].name == group_name)
+						{
+							group_id = groups[i].id;
+							break;
+						}
+					}
+					if (group_id < 0)
+						group_id = addGroup(group_name);
+				}
+
+#ifdef DEBUG_READ
+				timer.toc(tgroup);
+#endif
+
+			}
+			else
+			{
+				// All images belong to the same micrograph
+				mic_id = 0;
+				group_id = 0;
+			}
+
+			// If there is an EMDL_PARTICLE_RANDOM_SUBSET entry in the input STAR-file, then set the random_subset, otherwise use default (0)
+			int my_random_subset;
+			if (!MDimg.getValue(EMDL_PARTICLE_RANDOM_SUBSET, my_random_subset))
+				my_random_subset = 0;
+
+			// Create a new particle
+			part_id = addParticle(group_id, mic_id, my_random_subset);
+
+#ifdef DEBUG_READ
+			timer.tic(tori);
+#endif
+
+			//if (do_preread_images)
+			if (part_id % pacman::size == pacman::rank)
+			{
+                //std::cout << "part_id = " << part_id << std::endl;
+				FileName fn_img;
+				MDimg.getValue(EMDL_IMAGE_NAME, fn_img);
+				Image<float> img;
+				fn_img.decompose(dump, fn_stack);
+				if (fn_stack != fn_open_stack)
+				{
+					hFile.openFile(fn_stack, WRITE_READONLY);
+					fn_open_stack = fn_stack;
+				}
+				img.readFromOpenFile(fn_img, hFile, -1, false);
+				img().setXmippOrigin();
+				particles[part_id].img = img();
+			} else {
+				FileName fn_img;
+				MDimg.getValue(EMDL_IMAGE_NAME, fn_img);
+				fn_img.decompose(dump, fn_stack);
+				if (fn_stack != fn_open_stack)
+				{
+					hFile.openFile(fn_stack, WRITE_READONLY);
+					fn_open_stack = fn_stack;
+				}
+            }
+
+			// Add this particle to an existing OriginalParticle, or create a new OriginalParticle
+			std::string ori_part_name;
+			long int ori_part_id = -1;
+
+			if (MDimg.containsLabel(EMDL_PARTICLE_ORI_NAME))
+				MDimg.getValue(EMDL_PARTICLE_ORI_NAME, ori_part_name);
+			else
+				MDimg.getValue(EMDL_IMAGE_NAME, ori_part_name);
+
+			if (MDimg.containsLabel(EMDL_PARTICLE_ORI_NAME) && !do_ignore_original_particle_name)
+			{
+				// Only search ori_particles for the last (original) micrograph
+				for (long int i = last_oripart_idx; i < ori_particles.size(); i++)
+				{
+					if (ori_particles[i].name == ori_part_name)
+					{
+						ori_part_id = i;
+						break;
+					}
+				}
+			}
+
+			// If no OriginalParticles with this name was found,
+			// or if no EMDL_PARTICLE_ORI_NAME in the input file, or if do_ignore_original_particle_name
+			// then add a new ori_particle
+			if (ori_part_id < 0)
+			{
+				ori_part_id = addOriginalParticle(ori_part_name, my_random_subset);
+				// Also add this original_particle to an original_micrograph (only for movies)
+				if (is_mic_a_movie)
+				{
+					micrographs[mic_id].ori_particle_ids.push_back(ori_part_id);
+				}
+			}
+#ifdef DEBUG_READ
+			timer.toc(tori);
+#endif
+
+
+			// Add this particle to the OriginalParticle
+			std::string fnt;
+			long int my_order;
+			mic_name.decompose(my_order, fnt);
+			(ori_particles[ori_part_id]).addParticle(part_id, my_random_subset, my_order);
+
+			// The group number is only set upon reading: it is not read from the STAR file itself,
+			// there the only thing that matters is the order of the micrograph_names
+			// Write igroup+1, to start numbering at one instead of at zero
+			MDimg.setValue(EMDL_MLMODEL_GROUP_NO, group_id + 1, part_id);
+
+#ifdef DEBUG_READ
+			nr_read++;
+#endif
+		} // end loop over all objects in MDimg
+
+        // gather all data
+        for(int part_id = 0; part_id < (int)particles.size(); part_id ++)
+        {
+            if (part_id % pacman::size == pacman::rank && pacman::rank != 0)
+            {
+                long int dims[] = {particles[part_id].img.ndim, particles[part_id].img.zdim, particles[part_id].img.ydim, particles[part_id].img.xdim};
+                MPI_Send(dims, sizeof(dims), MPI_BYTE, 0, 1, MPI_COMM_WORLD);
+                //std::cout << "debug : send " << pacman::rank << " " << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
+                MPI_Send(MULTIDIM_ARRAY(particles[part_id].img), MULTIDIM_SIZE(particles[part_id].img), MPI_FLOAT, 0, 2, MPI_COMM_WORLD);
+            } else if (part_id % pacman::size != pacman::rank && pacman::rank == 0) {
+                long int dims[4];
+                MPI_Recv(dims, sizeof(dims), MPI_BYTE, part_id % pacman::size, 1, MPI_COMM_WORLD, NULL);
+                //std::cout << "debug : recv " << part_id % pacman::size << " " << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
+                particles[part_id].img.coreAllocate(dims[0], dims[1], dims[2], dims[3]);
+                MPI_Recv(MULTIDIM_ARRAY(particles[part_id].img), MULTIDIM_SIZE(particles[part_id].img), MPI_FLOAT, part_id % pacman::size, 2, MPI_COMM_WORLD, NULL);
+                particles[part_id].img.setXmippOrigin();
+            }
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        TIME_POINT(read_else);
+
+#ifdef DEBUG_READ
+		timer.toc(tfill);
+		timer.tic(tdef);
+		std::cerr << " MDimg.lastObject()= " << MDimg.lastObject() << std::endl;
+		std::cerr << " nr_read= " << nr_read << " particles.size()= " << particles.size() << " ori_particles.size()= " << ori_particles.size()  << " micrographs.size()= " << micrographs.size() << " groups.size()= " << groups.size() << std::endl;
+#endif
+
+		// Check for the presence of multiple bodies (for multi-body refinement)
+		bool is_done = false;
+		nr_bodies = 0;
+		while (!is_done)
+		{
+			std::string tablename = "images_body_" + integerToString(nr_bodies+1);
+                        MetaDataTable MDimgin;
+			if (MDimgin.read(fn_exp, tablename) > 0)
+			{
+				nr_bodies++;
+				MDbodies.push_back(MDimgin);
+			}
+			else
+			{
+				is_done = true;
+			}
+		}
+
+        TIME_POINT(read_else);
+
+		// Even if we don't do multi-body refinement, then nr_bodies is still 1
+		nr_bodies = XMIPP_MAX(nr_bodies, 1);
+
+	}
+
+    TIME_POINT(read);
+
+#ifdef DEBUG_READ
+	std::cerr << "Done filling MDimg" << std::endl;
+	//std::cerr << "Press any key to continue..." << std::endl;
+	//std::cin >> c;
+#endif
+
+	// Make sure some things are always set in the MDimg
+	bool have_rot  = MDimg.containsLabel(EMDL_ORIENT_ROT);
+	bool have_tilt = MDimg.containsLabel(EMDL_ORIENT_TILT);
+	bool have_psi  = MDimg.containsLabel(EMDL_ORIENT_PSI);
+	bool have_xoff = MDimg.containsLabel(EMDL_ORIENT_ORIGIN_X);
+	bool have_yoff = MDimg.containsLabel(EMDL_ORIENT_ORIGIN_Y);
+	bool have_zoff = MDimg.containsLabel(EMDL_ORIENT_ORIGIN_Z);
+	bool have_zcoord = MDimg.containsLabel(EMDL_IMAGE_COORD_Z);
+	bool have_clas = MDimg.containsLabel(EMDL_PARTICLE_CLASS);
+	bool have_norm = MDimg.containsLabel(EMDL_IMAGE_NORM_CORRECTION);
+
+	// Jan20,2016 - Helical reconstruction
+	bool have_tilt_prior = MDimg.containsLabel(EMDL_ORIENT_TILT_PRIOR);
+	bool have_psi_prior = MDimg.containsLabel(EMDL_ORIENT_PSI_PRIOR);
+	bool have_tiltpsi = (have_tilt) && (have_psi);
+	bool have_tiltpsi_prior = (have_tilt_prior) && (have_psi_prior);
+	if (need_tiltpsipriors_for_helical_refine)
+	{
+		if (!have_tiltpsi_prior)
+		{
+			if (!have_tiltpsi)
+				REPORT_ERROR("exp_model.cpp: Experiment::read(): Tilt and psi priors of helical segments are missing!");
+		}
+	}
+    TIME_POINT(read);
+	FOR_ALL_OBJECTS_IN_METADATA_TABLE(MDimg)
+	{
+		RFLOAT dzero=0., done=1.;
+		int izero = 0;
+		if (!have_rot)
+			MDimg.setValue(EMDL_ORIENT_ROT, dzero);
+		if (!have_tilt)
+			MDimg.setValue(EMDL_ORIENT_TILT, dzero);
+		if (!have_psi)
+			MDimg.setValue(EMDL_ORIENT_PSI, dzero);
+		if (!have_xoff)
+			MDimg.setValue(EMDL_ORIENT_ORIGIN_X, dzero);
+		if (!have_yoff)
+			MDimg.setValue(EMDL_ORIENT_ORIGIN_Y, dzero);
+		if ( (!have_zoff) && (have_zcoord) )
+			MDimg.setValue(EMDL_ORIENT_ORIGIN_Z, dzero);
+		if (!have_clas)
+			MDimg.setValue(EMDL_PARTICLE_CLASS, izero);
+		if (!have_norm)
+			MDimg.setValue(EMDL_IMAGE_NORM_CORRECTION, done);
+		if (need_tiltpsipriors_for_helical_refine && have_tiltpsi_prior) // If doing 3D helical reconstruction and PRIORs exist
+		{
+			RFLOAT tilt = 0., psi = 0.;
+			if (have_tiltpsi)
+				MDimg.getValue(EMDL_ORIENT_TILT, tilt);
+			// If ANGLEs do not exist or they are all set to 0 (from a Class2D job), copy values of PRIORs to ANGLEs
+			if ( (!have_tiltpsi) || ((have_tiltpsi) && (ABS(tilt) < 0.001)) )
+			{
+				MDimg.getValue(EMDL_ORIENT_TILT_PRIOR, tilt);
+				MDimg.getValue(EMDL_ORIENT_PSI_PRIOR, psi);
+				MDimg.setValue(EMDL_ORIENT_TILT, tilt);
+				MDimg.setValue(EMDL_ORIENT_PSI, psi);
+			}
+		}
+	}
+    TIME_POINT(read);
+
+#ifdef DEBUG_READ
+	timer.toc(tdef);
+	std::cerr << "Done setting defaults MDimg" << std::endl;
+	timer.tic(tend);
+	//std::cerr << "Press any key to continue..." << std::endl;
+	//std::cin >> c;
+#endif
+
+	// Also set the image_size (use the last image for that, still in fn_img)
+	FileName fn_img;
+	Image<RFLOAT> img;
+	MDimg.getValue(EMDL_IMAGE_NAME, fn_img, MDimg.firstObject());
+	if (fn_img != "")
+	{
+		img.read(fn_img, false); //false means read only header, skip real data
+		is_3D = (ZSIZE(img()) > 1);
+		int image_size = XSIZE(img());
+		if (image_size != YSIZE(img()))
+			REPORT_ERROR("Experiment::read: xsize != ysize: only squared images allowed");
+		// Add a single object to MDexp
+		MDexp.addObject();
+		MDexp.setValue(EMDL_IMAGE_SIZE, image_size);
+		if (ZSIZE(img()) > 1)
+		{
+			if (image_size != ZSIZE(img()))
+				REPORT_ERROR("Experiment::read: xsize != zsize: only cubed images allowed");
+			MDexp.setValue(EMDL_IMAGE_DIMENSIONALITY, 3);
+		}
+		else
+		{
+			MDexp.setValue(EMDL_IMAGE_DIMENSIONALITY, 2);
+		}
+	}
+	else
+	{
+		REPORT_ERROR("There are no images read in: please check your input file...");
+	}
+
+    TIME_POINT(read);
 
 	// Order the particles in each ori_particle (only useful for realignment of movie frames)
 	orderParticlesInOriginalParticles();

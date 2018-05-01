@@ -56,10 +56,14 @@
 #include "src/matrix2d.h"
 #include "src/complex.h"
 #include <limits>
-
+#include <type_traits>
+#include <cassert>
 
 extern int bestPrecision(float F, int _width);
 extern std::string floatToString(float F, int _width, int _prec);
+
+void* newData(size_t size);
+void deleteData(void* ptr);
 
 /// @defgroup MultidimensionalArrays Multidimensional Arrays
 /// @ingroup DataLibrary
@@ -504,6 +508,12 @@ public:
      */
     MultidimArray()
     {
+        assert(
+                (std::is_same<T, RFLOAT>::value) ||
+                (std::is_same<T, int>::value) ||
+                (std::is_same<T, float>::value) ||
+                (std::is_same<T, Complex>::value)
+                );
         coreInit();
     }
 
@@ -693,7 +703,8 @@ public:
         }
         else
         {
-            data = new T [nzyxdim];
+            // data = new T [nzyxdim];
+            data = (T*)newData(sizeof(T)*nzyxdim);
             if (data == NULL)
                 REPORT_ERROR( "Allocate: No space left");
         }
@@ -734,7 +745,8 @@ public:
         }
         else
         {
-            data = new T [nzyxdim];
+            // data = new T [nzyxdim];
+            data = (T*)newData(sizeof(T)*nzyxdim);
             if (data == NULL)
                 REPORT_ERROR( "Allocate: No space left");
         }
@@ -765,7 +777,8 @@ public:
                 remove(mapFile.c_str());
             }
             else
-                delete[] data;
+                // delete[] data;
+                deleteData(data);
         }
         data=NULL;
         nzyxdimAlloc = 0;
@@ -909,9 +922,11 @@ public:
         if (data == NULL || mmapOn || nzyxdim <= 0 || nzyxdimAlloc <= nzyxdim)
             return;
         T* old_array = data;
-        data = new T[nzyxdim];
+        // data = new T[nzyxdim];
+        data = (T*)newData(sizeof(T)*nzyxdim);
         memcpy(data, old_array, sizeof(T) * nzyxdim);
-        delete[] old_array;
+        //delete[] old_array;
+        deleteData(old_array);
         nzyxdimAlloc = nzyxdim;
     }
 
@@ -1046,7 +1061,8 @@ public:
                     REPORT_ERROR("MultidimArray::resize: mmap failed.");
             }
             else
-                new_data = new T [NZYXdim];
+                // new_data = new T [NZYXdim];
+                new_data = (T*)newData(sizeof(T)*NZYXdim);
         }
         catch (std::bad_alloc &)
         {
@@ -1134,7 +1150,8 @@ public:
                     REPORT_ERROR("MultidimArray::resize: mmap failed.");
             }
             else
-                new_data = new T [NZYXdim];
+                // new_data = new T [NZYXdim];
+                new_data = (T*)newData(sizeof(T)*NZYXdim);
         }
         catch (std::bad_alloc &)
         {

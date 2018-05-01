@@ -235,7 +235,6 @@ void init_progress_bar(long total);
  */
 void progress_bar(long act_time);
 
-
 /* Class to do some profiling
  *
  */

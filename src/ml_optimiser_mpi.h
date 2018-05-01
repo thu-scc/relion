@@ -23,6 +23,8 @@
 #include "src/mpi.h"
 #include "src/ml_optimiser.h"
 
+#include <sstream>
+
 #define MPITAG_JOB_REQUEST 0
 #define MPITAG_JOB_REPLY 1
 #define MPITAG_METADATA 2

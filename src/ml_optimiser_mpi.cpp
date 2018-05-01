@@ -17,6 +17,7 @@
  * source code. Additional authorship citations may be added, but existing
  * author citations must be preserved.
  ***************************************************************************/
+#include "timepoint.h"
 #include "src/ml_optimiser_mpi.h"
 #include "src/ml_optimiser.h"
 #ifdef CUDA
@@ -83,6 +84,7 @@ void MlOptimiserMpi::finalise()
 
 void MlOptimiserMpi::initialise()
 {
+	TIME_POINT_INIT(initialise);
 
 #ifdef DEBUG
     std::cerr<<"MlOptimiserMpi::initialise Entering"<<std::endl;
@@ -91,7 +93,8 @@ void MlOptimiserMpi::initialise()
 	// Print information about MPI nodes:
     if (!do_movies_in_batches)
     	printMpiNodesMachineNames(*node, nr_threads);
-#ifdef CUDA
+    TIME_POINT(initialise);
+//#ifdef CUDA
     /************************************************************************/
 	//Setup GPU related resources
     int devCount, deviceAffinity;
@@ -449,12 +452,21 @@ will still yield good performance and possibly a more stable execution. \n" << s
 		}
 	}
 	/************************************************************************/
-#endif // CUDA
+//#endif // CUDA
 
+	TIME_POINT(initialise);
 
     MlOptimiser::initialiseGeneral(node->rank);
 
+    TIME_POINT(initialise);
+
     initialiseWorkLoad();
+
+    TIME_POINT(initialise);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+    TIME_POINT(initialise);
 
 	if (fn_sigma != "")
 	{
@@ -477,7 +489,6 @@ will still yield good performance and possibly a more stable execution. \n" << s
 		// Use the same spectrum for all classes
 		for (int igroup = 0; igroup< mymodel.nr_groups; igroup++)
 			mymodel.sigma2_noise[igroup] =  mymodel.sigma2_noise[0];
-
 	}
 	else if (do_calculate_initial_sigma_noise || do_average_unaligned)
 	{
@@ -493,8 +504,11 @@ will still yield good performance and possibly a more stable execution. \n" << s
 		//std::cout << " Hello world3! I am node " << node->rank << " out of " << node->size <<" and my hostname= "<< getenv("HOSTNAME")<< std::endl;
 	}
 
+	TIME_POINT(initialise);
 
 	MlOptimiser::initialLowPassFilterReferences();
+
+	TIME_POINT(initialise);
 
 	// Initialise the data_versus_prior ratio to get the initial current_size right
 	if (iter == 0)
@@ -531,6 +545,7 @@ will still yield good performance and possibly a more stable execution. \n" << s
             std:: cout << "         It is then best to join micrographs with similar defocus values and similar apparent signal-to-noise ratios. " << std::endl;
 		}
 	}
+	TIME_POINT(initialise);
 
 	// Do this after writing out the model, so that still the random halves are written in separate files.
 	if (do_realign_movies)
@@ -556,11 +571,19 @@ will still yield good performance and possibly a more stable execution. \n" << s
 
 void MlOptimiserMpi::initialiseWorkLoad()
 {
+    TIME_POINT_INIT(initialiseWorkLoad);
+    TIME_POINT(initialiseWorkLoad);
 
     if (do_split_random_halves && node->size <= 2)
     	REPORT_ERROR("MlOptimiserMpi::initialiseWorkLoad: at least 3 MPI processes are required when splitting data into random halves");
     else if(node->size <= 1)
     	REPORT_ERROR("MlOptimiserMpi::initialiseWorkLoad: at least 2 MPI processes are required, otherwise use the sequential program");
+
+    TIME_POINT(initialiseWorkLoad);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+    TIME_POINT(initialiseWorkLoad);
 
 	// Get the same random number generator seed for all mpi nodes
 	if (random_seed == -1)
@@ -578,12 +601,18 @@ void MlOptimiserMpi::initialiseWorkLoad()
 		}
 	}
 
+    TIME_POINT(initialiseWorkLoad);
+
     // Also randomize random-number-generator for perturbations on the angles
     init_random_generator(random_seed);
+
+    TIME_POINT(initialiseWorkLoad);
 
     // Split the data into two random halves
 	if (do_split_random_halves)
 		mydata.divideOriginalParticlesInRandomHalves(random_seed, do_helical_refine);
+
+    TIME_POINT(initialiseWorkLoad);
 
 	if (node->isMaster())
 	{
@@ -619,6 +648,8 @@ void MlOptimiserMpi::initialiseWorkLoad()
 		}
 
 	}
+
+    TIME_POINT(initialiseWorkLoad);
 
 	// Now copy particle stacks to scratch if needed
     if (fn_scratch != "" && !do_preread_images && !do_reuse_scratch)
@@ -659,7 +690,11 @@ void MlOptimiserMpi::initialiseWorkLoad()
 		}
     }
 
+    TIME_POINT(initialiseWorkLoad);
+
     MPI_Barrier(MPI_COMM_WORLD);
+
+    TIME_POINT(initialiseWorkLoad);
 
     if(!do_split_random_halves)
 	{
@@ -675,9 +710,15 @@ void MlOptimiserMpi::initialiseWorkLoad()
 
 			for(int i=0; i<mymodel.PPref.size(); i++)
 				mymodel.PPrefRank[i] = ((i)%(node->size-1) == node->rank-1);
+
+            TIME_POINT_INIT(mymodel_PPrefRank);
+            TIME_COUT(mymodel_PPrefRank) << mymodel.PPref.size() << " " << mymodel.PPrefRank[0]<<mymodel.PPrefRank[1]<<mymodel.PPrefRank[2]<<mymodel.PPrefRank[3] << endl;
 		}
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
+
+    TIME_POINT(initialiseWorkLoad);
+
 //#define DEBUG_WORKLOAD
 #ifdef DEBUG_WORKLOAD
 	std::cerr << " node->rank= " << node->rank << " my_first_ori_particle_id= " << my_first_ori_particle_id << " my_last_ori_particle_id= " << my_last_ori_particle_id << std::endl;
@@ -719,6 +760,8 @@ void MlOptimiserMpi::expectation()
 	std::cerr << "MlOptimiserMpi::expectation: Entering " << std::endl;
 #endif
 
+    TIME_POINT_INIT(expectation);
+
 	MultidimArray<long int> first_last_nr_images(6);
 	MultidimArray<RFLOAT> metadata;
 	int first_slave = 1;
@@ -727,9 +770,17 @@ void MlOptimiserMpi::expectation()
 	n_trials_acc = XMIPP_MIN(n_trials_acc, mydata.numberOfOriginalParticles());
 	MPI_Status status;
 
+    TIME_POINT(expectation);
+
 	// Initialise some stuff
 	// A. Update current size (may have been changed to ori_size in autoAdjustAngularSampling) and resolution pointers
 	updateImageSizeAndResolutionPointers();
+    
+    TIME_POINT(expectation);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    TIME_POINT(expectation);
 
 	// B. Set the PPref Fourier transforms, initialise wsum_model, etc.
 	// The master only holds metadata, it does not set up the wsum_model (to save memory)
@@ -748,10 +799,14 @@ void MlOptimiserMpi::expectation()
 #endif
 	}
 
+    TIME_POINT(expectation);
+
 	MPI_Barrier(MPI_COMM_WORLD);
 #ifdef TIMING
 		timer.toc(TIMING_EXP_1a);
 #endif
+
+    TIME_POINT(expectation);
 
 	if(!do_split_random_halves)
 	{
@@ -776,6 +831,7 @@ void MlOptimiserMpi::expectation()
 		}
 		MPI_Barrier(MPI_COMM_WORLD);
 	}
+    TIME_POINT(expectation);
 #ifdef DEBUG
 	if(node->rank==2)
 	{
@@ -790,6 +846,7 @@ void MlOptimiserMpi::expectation()
 			f.close();
 		}
 	}
+    TIME_POINT(expectation);
 #endif
 
 #ifdef TIMING
@@ -837,6 +894,7 @@ void MlOptimiserMpi::expectation()
 		node->relion_MPI_Bcast(&acc_rot, 1, MY_MPI_DOUBLE, first_slave, MPI_COMM_WORLD);
 		node->relion_MPI_Bcast(&acc_trans, 1, MY_MPI_DOUBLE, first_slave, MPI_COMM_WORLD);
 	}
+    TIME_POINT(expectation);
 #ifdef TIMING
 		timer.toc(TIMING_EXP_2);
 		timer.tic(TIMING_EXP_3);
@@ -846,6 +904,7 @@ void MlOptimiserMpi::expectation()
 	{
 		updateAngularSampling(node->rank == 1);
 	}
+    TIME_POINT(expectation);
 	// The master needs to know about the updated parameters from updateAngularSampling
 	node->relion_MPI_Bcast(&has_fine_enough_angular_sampling, 1, MPI_INT, first_slave, MPI_COMM_WORLD);
 	node->relion_MPI_Bcast(&nr_iter_wo_resol_gain, 1, MPI_INT, first_slave, MPI_COMM_WORLD);
@@ -853,6 +912,7 @@ void MlOptimiserMpi::expectation()
 	node->relion_MPI_Bcast(&smallest_changes_optimal_classes, 1, MPI_INT, first_slave, MPI_COMM_WORLD);
 	node->relion_MPI_Bcast(&smallest_changes_optimal_offsets, 1, MY_MPI_DOUBLE, first_slave, MPI_COMM_WORLD);
 	node->relion_MPI_Bcast(&smallest_changes_optimal_orientations, 1, MY_MPI_DOUBLE, first_slave, MPI_COMM_WORLD);
+    TIME_POINT(expectation);
 
 
 	// Feb15,2016 - Shaoda - copy the following variables to the master
@@ -865,6 +925,7 @@ void MlOptimiserMpi::expectation()
 		node->relion_MPI_Bcast(&mymodel.sigma2_offset, 1, MY_MPI_DOUBLE, first_slave, MPI_COMM_WORLD);
 		node->relion_MPI_Bcast(&mymodel.orientational_prior_mode, 1, MPI_INT, first_slave, MPI_COMM_WORLD);
 	}
+    TIME_POINT(expectation);
 
 	// E. All nodes, except the master, check memory and precalculate AB-matrices for on-the-fly shifts
 	if (!node->isMaster())
@@ -879,9 +940,11 @@ void MlOptimiserMpi::expectation()
 		if ( (do_shifts_onthefly) && (subset == 1) && (!((do_helical_refine) && (!ignore_helical_symmetry))) )
 			precalculateABMatrices();
 	}
+    TIME_POINT(expectation);
 	// Slave 1 sends has_converged to everyone else (in particular the master needs it!)
 	node->relion_MPI_Bcast(&has_converged, 1, MPI_INT, first_slave, MPI_COMM_WORLD);
 	node->relion_MPI_Bcast(&do_join_random_halves, 1, MPI_INT, first_slave, MPI_COMM_WORLD);
+    TIME_POINT(expectation);
 #ifdef TIMING
 		timer.toc(TIMING_EXP_3);
 		timer.tic(TIMING_EXP_4);
@@ -890,7 +953,8 @@ void MlOptimiserMpi::expectation()
 
 	// Wait until expected angular errors have been calculated
 	MPI_Barrier(MPI_COMM_WORLD);
-	sleep(1);
+	//sleep(1); // FIXME WTF???
+    TIME_POINT(expectation);
 #ifdef TIMING
 		timer.toc(TIMING_EXP_4a);
 #endif
@@ -911,6 +975,7 @@ void MlOptimiserMpi::expectation()
 	MPI_Barrier(MPI_COMM_WORLD);
 
 
+    TIME_POINT(expectation);
 	if (do_gpu && ! node->isMaster())
 	{
 		for (int i = 0; i < cudaDevices.size(); i ++)
@@ -977,19 +1042,23 @@ void MlOptimiserMpi::expectation()
 			allocationSizes.push_back(allocationSize);
 		}
 	}
+    TIME_POINT(expectation);
 
 	MPI_Barrier(MPI_COMM_WORLD);
+    TIME_POINT(expectation);
 
 	if (do_gpu && ! node->isMaster())
 	{
 		for (int i = 0; i < cudaDeviceBundles.size(); i ++)
 			((MlDeviceBundle*)cudaDeviceBundles[i])->setupTunableSizedObjects(allocationSizes[i]);
 	}
+    TIME_POINT(expectation);
 	/************************************************************************/
 #endif // CUDA
 #ifdef TIMING
 		timer.toc(TIMING_EXP_4);
 #endif
+    TIME_POINT(expectation);
     if (node->isMaster())
     {
 #ifdef TIMING
@@ -1465,6 +1534,7 @@ void MlOptimiserMpi::expectation()
 		timer.toc(TIMING_EXP_6);
 #endif
     }
+    TIME_POINT(expectation);
 
     // Just make sure the temporary arrays are empty...
 	exp_imagedata.clear();
@@ -1472,6 +1542,7 @@ void MlOptimiserMpi::expectation()
 
 	if (subset_size < 0 && verb > 0)
 		progress_bar(mydata.numberOfOriginalParticles());
+    TIME_POINT(expectation);
 
 #ifdef TIMING
     // Measure how long I have to wait for the rest
@@ -1482,6 +1553,7 @@ void MlOptimiserMpi::expectation()
 
 	// Wait until expected angular errors have been calculated
 	MPI_Barrier(MPI_COMM_WORLD);
+    TIME_POINT(expectation);
 
 	// All slaves reset the size of their projector to zero to save memory
 	if (!node->isMaster())
@@ -1489,6 +1561,7 @@ void MlOptimiserMpi::expectation()
 		for (int iclass = 0; iclass < mymodel.nr_classes; iclass++)
 			mymodel.PPref[iclass].initialiseData(0);
 	}
+    TIME_POINT(expectation);
 
 
 #ifdef DEBUG
@@ -2833,6 +2906,8 @@ void MlOptimiserMpi::compareTwoHalves()
 
 void MlOptimiserMpi::iterate()
 {
+    TIME_POINT_INIT(iterate);
+
 #ifdef TIMING
 	// MPI-specific timing stuff goes here...
 	TIMING_MPIWAIT= timer.setNew("mpiWaitEndOfExpectation");
@@ -2844,12 +2919,17 @@ void MlOptimiserMpi::iterate()
 	TIMING_MPISLAVEWAIT3= timer.setNew("mpiSlaveWaiting3");
 #endif
 
+	TIME_POINT(iterate);
 
 	// Launch threads etc.
 	MlOptimiser::iterateSetup();
 
+	TIME_POINT(iterate);
+
 	// Initialize the current resolution
 	updateCurrentResolution();
+
+	TIME_POINT(iterate);
 
 	// If we're doing a restart from subsets, then do not increment the iteration number in the restart!
 	if (subset > 0)
@@ -2860,23 +2940,34 @@ void MlOptimiserMpi::iterate()
 #ifdef TIMING
 		timer.tic(TIMING_EXP);
 #endif
+        TIME_POINT_INIT(iter);
 
 		for (subset = subset_start; subset <= nr_subsets; subset++)
 		{
+            TIME_POINT_INIT(subset);
+
 			// Nobody can start the next iteration until everyone has finished
 			MPI_Barrier(MPI_COMM_WORLD);
+            
+            TIME_POINT(subset);
 
 			// Only first slave checks for convergence and prints stats to the stdout
 			if (do_auto_refine)
 				checkConvergence(node->rank == 1);
 
+            TIME_POINT(subset);
+
 			expectation();
+
+            TIME_POINT(subset);
 
 			int old_verb = verb;
 			if (nr_subsets > 1) // be quiet
 				verb = 0;
 
 			MPI_Barrier(MPI_COMM_WORLD);
+
+            TIME_POINT(subset);
 
 			if (do_skip_maximization)
 			{
@@ -2892,6 +2983,8 @@ void MlOptimiserMpi::iterate()
 				break;
 			}
 
+            TIME_POINT(subset);
+
 			// Now combine all weighted sums
 			// Leave the option ot both for a while. Then, if there are no problems with the system via files keep that one and remove the MPI version from the code
 			if (combine_weights_thru_disc)
@@ -2899,7 +2992,11 @@ void MlOptimiserMpi::iterate()
 			else
 				combineAllWeightedSums();
 
+            TIME_POINT(subset);
+
 			MPI_Barrier(MPI_COMM_WORLD);
+
+            TIME_POINT(subset);
 
 			// Sjors & Shaoda Apr 2015
 			// This function does enforceHermitianSymmetry, applyHelicalSymmetry and applyPointGroupSymmetry sequentially.
@@ -2922,7 +3019,9 @@ void MlOptimiserMpi::iterate()
 						std::cout << " Applying helical symmetry from the last iteration in real space..." << std::endl;
 				}
 			}
+            TIME_POINT(subset);
 			symmetriseReconstructions();
+            TIME_POINT(subset);
 
 			if ( (verb > 0) && (node->isMaster()) && (fn_local_symmetry_masks.size() >= 1) && (fn_local_symmetry_operators.size() >= 1) )
 				std::cout << " Applying local symmetry in real space according to " << fn_local_symmetry_operators.size() << " operators..." << std::endl;
@@ -2932,6 +3031,7 @@ void MlOptimiserMpi::iterate()
 			if (do_auto_refine && has_converged)
 #endif
 				writeTemporaryDataAndWeightArrays();
+            TIME_POINT(subset);
 
 			// Inside iterative refinement: do FSC-calculation BEFORE the solvent flattening, otherwise over-estimation of resolution
 			// anyway, now that this is done inside BPref, there would be no other way...
@@ -2977,6 +3077,7 @@ void MlOptimiserMpi::iterate()
 
 				}
 			}
+            TIME_POINT(subset);
 
 #ifdef TIMING
 			timer.toc(TIMING_EXP);
@@ -2984,6 +3085,7 @@ void MlOptimiserMpi::iterate()
 #endif
 
 			maximization();
+            TIME_POINT(subset);
 
 			// Make sure all nodes have the same resolution, set the data_vs_prior array from half1 also for half2
 			// Because there is an if-statement on ave_Pmax to set the image size, also make sure this one is the same for both halves
@@ -2993,12 +3095,14 @@ void MlOptimiserMpi::iterate()
 				for (int iclass = 0; iclass < mymodel.nr_classes; iclass++)
 					node->relion_MPI_Bcast(MULTIDIM_ARRAY(mymodel.data_vs_prior_class[iclass]), MULTIDIM_SIZE(mymodel.data_vs_prior_class[iclass]), MY_MPI_DOUBLE, 1, MPI_COMM_WORLD);
 			}
+            TIME_POINT(subset);
 
 #ifdef TIMING
 			timer.toc(TIMING_MAX);
 #endif
 
 			MPI_Barrier(MPI_COMM_WORLD);
+            TIME_POINT(subset);
 
 			if (node->isMaster())
 			{
@@ -3039,7 +3143,9 @@ void MlOptimiserMpi::iterate()
 					}
 				}
 			}
+            TIME_POINT(subset);
 			MPI_Barrier(MPI_COMM_WORLD);
+            TIME_POINT(subset);
 
 			// Mask the reconstructions to get rid of noisy solvent areas
 			// Skip masking upon convergence (for validation purposes)
@@ -3071,6 +3177,8 @@ void MlOptimiserMpi::iterate()
 				// The master only writes the data file (he's the only one who has and manages these data!)
 				MlOptimiser::write(DONT_WRITE_SAMPLING, DO_WRITE_DATA, DONT_WRITE_OPTIMISER, DONT_WRITE_MODEL, node->rank);
 
+            TIME_POINT(subset);
+
 			if (do_auto_refine && has_converged)
 			{
 				if (verb > 0)
@@ -3095,6 +3203,8 @@ void MlOptimiserMpi::iterate()
 				break;
 			}
 
+            TIME_POINT(subset);
+
 			verb = old_verb;
 
 			if (nr_subsets > 1 && sgd_max_subsets > 0 && subset > sgd_max_subsets)
@@ -3106,6 +3216,7 @@ void MlOptimiserMpi::iterate()
 				timer.printTimes(false);
 #endif
 		} // end loop subsets
+        TIME_POINT(iter);
 
 
 		if (do_auto_refine && has_converged)
@@ -3144,16 +3255,25 @@ void MlOptimiserMpi::iterate()
 				subset_size = -1;
 			}
 		}
+        TIME_POINT(iter);
 
     } // end loop iters
+
+	TIME_POINT(iterate);
 
 	// Hopefully this barrier will prevent some bus errors
 	MPI_Barrier(MPI_COMM_WORLD);
 
+	TIME_POINT(iterate);
+
 	// delete threads etc.
 	MlOptimiser::iterateWrapUp();
+
+	TIME_POINT(iterate);
+
 	MPI_Barrier(MPI_COMM_WORLD);
 
+	TIME_POINT(iterate);
 }
 
 void MlOptimiserMpi::processMoviesPerMicrograph(int argc, char **argv)

@@ -17,6 +17,7 @@
  * source code. Additional authorship citations may be added, but existing
  * author citations must be preserved.
  ***************************************************************************/
+#include "timepoint.h"
 #include "src/projector.h"
 #include <src/time.h>
 //#define DEBUG
@@ -100,6 +101,9 @@ long int Projector::getSize()
 // Fill data array with oversampled Fourier transform, and calculate its power spectrum
 void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, MultidimArray<RFLOAT> &power_spectrum, int current_size, int nr_threads, bool do_gridding, bool do_heavy)
 {
+    TIME_POINT_INIT(computeFourierTransformMap);
+    TIME_POINT(computeFourierTransformMap);
+
 	TIMING_TIC(TIMING_TOP);
 
 	TIMING_TIC(TIMING_INIT1);
@@ -107,6 +111,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 	MultidimArray<Complex > Faux;
     FourierTransformer transformer;
     RFLOAT normfft;
+
+    TIME_POINT(computeFourierTransformMap);
 
 	// Size of padded real-space volume
 	int padoridim = ROUND(padding_factor * ori_size);
@@ -117,6 +123,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 
 	// Initialize data array of the oversampled transform
 	ref_dim = vol_in.getDim();
+
+    TIME_POINT(computeFourierTransformMap);
 
 	// Make Mpad
 	switch (ref_dim)
@@ -143,6 +151,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 	}
 	TIMING_TOC(TIMING_INIT1);
 
+    TIME_POINT(computeFourierTransformMap);
+
 	TIMING_TIC(TIMING_GRID);
 	// First do a gridding pre-correction on the real-space map:
 	// Divide by the inverse Fourier transform of the interpolator in Fourier-space
@@ -155,6 +165,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 		else
 			vol_in.setXmippOrigin();
 	}
+
+    TIME_POINT(computeFourierTransformMap);
 
 	TIMING_TOC(TIMING_GRID);
 
@@ -174,11 +186,15 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 		CenterFFT(Mpad, true);
 	TIMING_TOC(TIMING_CENTER);
 
+    TIME_POINT(computeFourierTransformMap);
+
 	TIMING_TIC(TIMING_TRANS);
 	// Calculate the oversampled Fourier transform
 	if(do_heavy)
 		transformer.FourierTransform(Mpad, Faux, false);
 	TIMING_TOC(TIMING_TRANS);
+
+    TIME_POINT(computeFourierTransformMap);
 
 	TIMING_TIC(TIMING_INIT2);
 	// Free memory: Mpad no longer needed
@@ -194,6 +210,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 	MultidimArray<RFLOAT> counter(power_spectrum);
 	counter.initZeros();
 	TIMING_TOC(TIMING_INIT2);
+
+    TIME_POINT(computeFourierTransformMap);
 
 	TIMING_TIC(TIMING_FAUX);
 	int max_r2 = ROUND(r_max * padding_factor) * ROUND(r_max * padding_factor);
@@ -216,6 +234,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 		}
 	TIMING_TOC(TIMING_FAUX);
 
+    TIME_POINT(computeFourierTransformMap);
+
 	TIMING_TIC(TIMING_POW);
 	// Calculate radial average of power spectrum
 	if(do_heavy)
@@ -227,6 +247,8 @@ void Projector::computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, Multid
 				DIRECT_A1D_ELEM(power_spectrum, i) /= DIRECT_A1D_ELEM(counter, i);
 		}
 	TIMING_TOC(TIMING_POW);
+
+    TIME_POINT(computeFourierTransformMap);
 
 	TIMING_TOC(TIMING_TOP);
 

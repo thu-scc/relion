@@ -43,7 +43,52 @@
  ***************************************************************************/
 
 #include "src/multidim_array.h"
+#include <map>
+using namespace std;
 
+static multimap<size_t, void*> datas;
+static map<void*, size_t> sizes;
+
+void* newData(size_t size)
+{
+    void* ptr = NULL;
+
+    /*
+    if (datas.find(size) != datas.end())
+    {
+        auto iter = datas.find(size);
+        datas.erase(iter);
+        ptr = iter->second;
+    } else {
+        ptr = malloc(size);
+    }
+    if (ptr != NULL)
+    {
+        sizes.insert(make_pair(ptr, size));
+        memset(ptr, 0, size);
+    }
+    */
+    ptr = malloc(size);
+    memset(ptr, 0, size);
+    return ptr;
+}
+
+void deleteData(void* ptr)
+{
+    /*
+    size_t size = 0;
+    if (sizes.find(ptr) != sizes.end())
+    {
+        size = sizes.at(ptr);
+    }
+    if (size == 0)
+    {
+        free(ptr);
+    } else {
+        datas.insert(make_pair(size, ptr));
+    }*/
+    free(ptr);
+}
 
 // Show a complex array ---------------------------------------------------
 std::ostream& operator<<(std::ostream& ostrm,

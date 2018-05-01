@@ -19,10 +19,12 @@
  ***************************************************************************/
 
 #include <src/ml_optimiser_mpi.h>
-
+#include "../timepoint.h"
+#include "../pacman.h"
 
 int main(int argc, char **argv)
 {
+	time_config();
 
 	MlOptimiserMpi optimiser;
     try
@@ -30,10 +32,16 @@ int main(int argc, char **argv)
     	// Read in parameters from the command line
     	optimiser.read(argc, argv);
 
+        pacman::init();
+
+        TIME_POINT_INIT(refine);
+        TIME_POINT(refine);
+
     	// Dirty hack to loop around movies one micrograph at a time
     	if (optimiser.do_movies_in_batches && optimiser.fn_data_movie != "" && optimiser.do_skip_maximization)
     	{
     		optimiser.processMoviesPerMicrograph(argc, argv);
+            TIME_POINT(refine);
     	}
     	else
     	{
@@ -41,9 +49,11 @@ int main(int argc, char **argv)
 
 			// Set things up
 			optimiser.initialise();
+            TIME_POINT(refine);
 
 			// Iterate
 			optimiser.iterate();
+            TIME_POINT(refine);
     	}
 
     }

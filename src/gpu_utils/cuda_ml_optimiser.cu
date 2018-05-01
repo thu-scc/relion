@@ -23,6 +23,7 @@
 #include "src/parallel.h"
 #include <signal.h>
 #include <map>
+#include "../timepoint.h"
 
 #ifdef CUDA_FORCESTL
 #include "src/gpu_utils/cuda_utils_stl.cuh"
@@ -3015,12 +3016,17 @@ void MlOptimiserCuda::resetData()
 
 void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 {
+    //TIME_POINT_INIT(doThreadExpectationSomeParticles);
+    //TIME_POINT(doThreadExpectationSomeParticles);
+
 #ifdef TIMING
 	// Only time one thread
 	if (thread_id == 0)
 		baseMLO->timer.tic(baseMLO->TIMING_ESP_THR);
 #endif
 //	CTOC(cudaMLO->timer,"interParticle");
+
+    //TIME_POINT(doThreadExpectationSomeParticles);
 
 	int devCount;
 	HANDLE_ERROR(cudaGetDeviceCount(&devCount));
@@ -3031,15 +3037,24 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 	}
 	else
 		DEBUG_HANDLE_ERROR(cudaSetDevice(device_id));
+
+    //TIME_POINT(doThreadExpectationSomeParticles);
 	//std::cerr << " calling on device " << device_id << std::endl;
 	//put mweight allocation here
 	size_t first_ipart = 0, last_ipart = 0;
 
+    //TIME_POINT(doThreadExpectationSomeParticles);
+
 	while (baseMLO->exp_ipart_ThreadTaskDistributor->getTasks(first_ipart, last_ipart))
 	{
+        //TIME_POINT_INIT(doThreadExpectationSomeParticles_while);
+        //TIME_POINT(doThreadExpectationSomeParticles_while);
 		CTIC(timer,"oneTask");
 		for (long unsigned ipart = first_ipart; ipart <= last_ipart; ipart++)
 		{
+            //TIME_POINT_INIT(doThreadExpectationSomeParticles_while_for);
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
+
 			CTIC(timer,"oneParticle");
 #ifdef TIMING
 	// Only time one thread
@@ -3051,6 +3066,8 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 			sp.nr_particles = baseMLO->mydata.ori_particles[my_ori_particle].particles_id.size();
 
 			OptimisationParamters op(sp.nr_particles, my_ori_particle);
+
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 
 			// In the first iteration, multiple seeds will be generated
 			// A single random class is selected for each pool of images, and one does not marginalise over the orientations
@@ -3084,12 +3101,16 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 				}
 			}
 
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
+
 			// Global exp_metadata array has metadata of all ori_particles. Where does my_ori_particle start?
 			for (long int iori = baseMLO->exp_my_first_ori_particle; iori <= baseMLO->exp_my_last_ori_particle; iori++)
 			{
 				if (iori == my_ori_particle) break;
 				op.metadata_offset += baseMLO->mydata.ori_particles[iori].particles_id.size();
 			}
+
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 #ifdef TIMING
 	// Only time one thread
 	if (thread_id == 0)
@@ -3103,6 +3124,8 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 			{
 				baseMLO->calculateRunningAveragesOfMovieFrames(my_ori_particle, op.Fimgs, op.power_imgs, op.highres_Xi2_imgs);
 			}
+
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 
 			// To deal with skipped alignments/rotations
 			if (baseMLO->do_skip_align)
@@ -3128,8 +3151,12 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 				}
 			}
 
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
+
 			// Initialise significant weight to minus one, so that all coarse sampling points will be handled in the first pass
 			op.significant_weight.resize(sp.nr_particles, -1.);
+
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 
 			// Only perform a second pass when using adaptive oversampling
 			//int nr_sampling_passes = (baseMLO->adaptive_oversampling > 0) ? 2 : 1;
@@ -3147,6 +3174,8 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 			std::vector < ProjectionParams > FineProjectionData(sp.nr_particles, baseMLO->mymodel.nr_classes);
 
 			std::vector < cudaStager<unsigned long> > stagerD2(sp.nr_particles,devBundle->allocator), stagerSWS(sp.nr_particles,devBundle->allocator);
+
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 
 			for (int ipass = 0; ipass < nr_sampling_passes; ipass++)
 			{
@@ -3289,6 +3318,7 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 
 				CTOC(timer,"weightPass");
 			}
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 #ifdef TIMING
 	// Only time one thread
 	if (thread_id == 0)
@@ -3302,6 +3332,7 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 				stagerSWS[iframe].size= 2*(FineProjectionData[iframe].orientationNumAllClasses);
 				stagerSWS[iframe].prepare();
 			}
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 #ifdef TIMING
 	// Only time one thread
 	if (thread_id == 0)
@@ -3312,9 +3343,12 @@ void MlOptimiserCuda::doThreadExpectationSomeParticles(int thread_id)
 			CTOC(timer,"storeWeightedSums");
 
 			CTOC(timer,"oneParticle");
+            //TIME_POINT(doThreadExpectationSomeParticles_while_for);
 		}
+        //TIME_POINT(doThreadExpectationSomeParticles_while);
 		CTOC(timer,"oneTask");
 	}
+    //TIME_POINT(doThreadExpectationSomeParticles);
 
 //	CTIC(cudaMLO->timer,"interParticle");
 //	exit(0);

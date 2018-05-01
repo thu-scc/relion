@@ -384,6 +384,10 @@ public:
 	void read(FileName fn_in, bool do_ignore_original_particle_name = false,
 			bool do_ignore_group_name = false, bool do_preread_images = false,
 			bool need_tiltpsipriors_for_helical_refine = false);
+	
+    void read_parallel(FileName fn_in, bool do_ignore_original_particle_name = false,
+			bool do_ignore_group_name = false, bool do_preread_images = false,
+			bool need_tiltpsipriors_for_helical_refine = false);
 
 	// Write
 	void write(FileName fn_root);

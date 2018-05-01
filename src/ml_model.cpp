@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 #include "src/ml_model.h"
+#include "timepoint.h"
 
 #ifdef MDL_TIMING
     Timer mdl_timer;
@@ -859,10 +860,16 @@ void MlModel::initialiseBodyMasks(FileName fn_masks, FileName fn_root_out)
 
 void MlModel::setFourierTransformMaps(bool update_tau2_spectra, int nr_threads, bool do_gpu)
 {
-	bool do_heavy(true);
+    TIME_POINT_INIT(setFourierTransformMaps);
+	
+    bool do_heavy(true);
 	int nr_classes_bodies = nr_classes * nr_bodies; // also set multiple bodies!
+    TIME_COUT(setFourierTransformMaps) << nr_classes_bodies << endl;
+    TIME_COUT(setFourierTransformMaps) << PPrefRank[0]<<PPrefRank[1]<<PPrefRank[2]<<PPrefRank[3] << endl;
 	for (int iclass = 0; iclass < nr_classes_bodies; iclass++)
     {
+        TIME_POINT_INIT(setFourierTransformMaps_iclass);
+        TIME_POINT(setFourierTransformMaps_iclass);
 
 		MultidimArray<RFLOAT> Irefp;
 		//19may2015: if multi-body refinement: place each body with its center-of-mass in the center
@@ -875,18 +882,25 @@ void MlModel::setFourierTransformMaps(bool update_tau2_spectra, int nr_threads, 
 			Irefp = Iref[iclass];
 		}
 
+        TIME_POINT(setFourierTransformMaps_iclass);
+
 		if(PPrefRank.size() > 1)
 			do_heavy = PPrefRank[iclass];
 
         if (update_tau2_spectra)
         {
+            TIME_COUT(setFourierTransformMaps) << MULTIDIM_SIZE(Irefp) << " " << MULTIDIM_SIZE(tau2_class[iclass]) << " " << current_size << " " << nr_threads << " " << true << " " << do_heavy << endl;
+            TIME_POINT(setFourierTransformMaps_iclass);
         	PPref[iclass].computeFourierTransformMap(Irefp, tau2_class[iclass], current_size, nr_threads, true, do_heavy);
         }
         else
         {
+            TIME_POINT(setFourierTransformMaps_iclass);
         	MultidimArray<RFLOAT> dummy;
         	PPref[iclass].computeFourierTransformMap(Irefp, dummy, current_size, nr_threads, true, do_heavy);
         }
+
+        TIME_POINT(setFourierTransformMaps_iclass);
     }
 
 }

@@ -40,6 +40,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include "timepoint.h"
 #include "src/macros.h"
 #include "src/error.h"
 #include "src/ml_optimiser.h"
@@ -1281,6 +1282,9 @@ void MlOptimiser::initialiseGeneral(int rank)
 
 #endif
 
+    TIME_POINT_INIT(initialiseGeneral);
+    TIME_POINT(initialiseGeneral);
+
 	// Check for errors in the command-line option
 	if (parser.checkForErrors(verb))
 		REPORT_ERROR("Errors encountered on the command line (see above), exiting...");
@@ -1305,12 +1309,16 @@ void MlOptimiser::initialiseGeneral(int rank)
 	if (do_always_cc)
 		do_calculate_initial_sigma_noise = false;
 
+    TIME_POINT(initialiseGeneral);
+
     if (do_print_metadata_labels)
 	{
 		if (verb > 0)
 			EMDL::printDefinitions(std::cout);
 		exit(0);
 	}
+
+    TIME_POINT(initialiseGeneral);
 
 	// Print symmetry operators to cout
 	if (do_print_symmetry_ops)
@@ -1323,9 +1331,13 @@ void MlOptimiser::initialiseGeneral(int rank)
 		exit(0);
 	}
 
+    TIME_POINT(initialiseGeneral);
+
 	// If we are not continuing an old run, now read in the data and the reference images
 	if (iter == 0)
 	{
+        TIME_POINT_INIT(initialiseGeneral_iter0);
+        TIME_POINT(initialiseGeneral_iter0);
 
 		// Read in the experimental image metadata
 		// If do_preread_images: only the master reads all images into RAM
@@ -1333,7 +1345,11 @@ void MlOptimiser::initialiseGeneral(int rank)
 		if (do_realign_movies)
 			do_preread = false; // as we will overwrite mydata.read with the movies anyway....
 		bool is_helical_segment = (do_helical_refine) || ((mymodel.ref_dim == 2) && (helical_tube_outer_diameter > 0.));
-		mydata.read(fn_data, true, false, do_preread, is_helical_segment); // true means ignore original particle name
+        TIME_POINT(initialiseGeneral_iter0);
+		//mydata.read(fn_data, true, false, do_preread, is_helical_segment); // true means ignore original particle name
+		mydata.read_parallel(fn_data, true, false, do_preread, is_helical_segment); // true means ignore original particle name
+
+        TIME_POINT(initialiseGeneral_iter0);
 
 		if (fn_body_masks != "")
 		{
@@ -1352,16 +1368,22 @@ void MlOptimiser::initialiseGeneral(int rank)
 			mydata.initialiseBodies(mymodel.nr_bodies);
 		}
 
+        TIME_POINT(initialiseGeneral_iter0);
+
 		// Also get original size of the images to pass to mymodel.read()
 		int ori_size = -1;
 		mydata.MDexp.getValue(EMDL_IMAGE_SIZE, ori_size);
 		if (ori_size%2 != 0)
 			REPORT_ERROR("This program only works with even values for the image dimensions!");
 
+        TIME_POINT(initialiseGeneral_iter0);
+
 		// Read in the reference(s) and initialise mymodel
 		int refdim = (fn_ref == "denovo") ? 3 : 2;
 		mymodel.readImages(fn_ref, is_3d_model, ori_size, mydata,
 				do_average_unaligned, do_generate_seeds, refs_are_ctf_corrected, do_sgd);
+
+        TIME_POINT(initialiseGeneral_iter0);
 
     	// Check consistency of EMDL_CTF_MAGNIFICATION and MEBL_CTF_DETECTOR_PIXEL_SIZE with mymodel.pixel_size
     	RFLOAT mag, dstep, first_angpix, my_angpix;
@@ -1386,12 +1408,14 @@ void MlOptimiser::initialiseGeneral(int rank)
 			}
 
     	}
+        TIME_POINT(initialiseGeneral_iter0);
     	if (has_magn && ABS(first_angpix - mymodel.pixel_size) > 0.01)
     	{
     		if (verb > 0 && mymodel.pixel_size > 0.)
     			std::cout << "MlOptimiser::initialiseGeneral: WARNING modifying pixel size from " << mymodel.pixel_size <<" to "<<first_angpix << " based on magnification information in the input STAR file" << std::endl;
     		mymodel.pixel_size = first_angpix;
     	}
+        TIME_POINT(initialiseGeneral_iter0);
 
     	if (!has_magn && mymodel.pixel_size < 0.)
     		REPORT_ERROR("ERROR: you did not specify the pixel size. Use the --angpix option to do so.");
@@ -1399,6 +1423,7 @@ void MlOptimiser::initialiseGeneral(int rank)
 	// Expand movies if fn_data_movie is given AND we were not doing expanded movies already
 	else if (fn_data_movie != "" && !do_realign_movies)
 	{
+        TIME_POINT(initialiseGeneral);
 
 		do_realign_movies = true;
 		do_parallel_disc_io = false;
@@ -1442,6 +1467,8 @@ void MlOptimiser::initialiseGeneral(int rank)
 
 	}
 
+    TIME_POINT(initialiseGeneral);
+
 	if (mymodel.nr_bodies > 1 && !do_auto_refine)
 		REPORT_ERROR("ERROR: One cannot use multi-body refinement outside the auto-refine procedure!");
 
@@ -1451,11 +1478,15 @@ void MlOptimiser::initialiseGeneral(int rank)
 	if (do_join_random_halves && !do_split_random_halves)
 		REPORT_ERROR("ERROR: cannot join random halves because they were not split in the previous run");
 
+    TIME_POINT(initialiseGeneral);
+
 	// Local symmetry operators
 	fn_local_symmetry_masks.clear();
 	fn_local_symmetry_operators.clear();
 	if (fn_local_symmetry != "None")
 		readRelionFormatMasksAndOperators(fn_local_symmetry, fn_local_symmetry_masks, fn_local_symmetry_operators, mymodel.pixel_size, false);
+
+    TIME_POINT(initialiseGeneral);
 
 	// Jun09, 2015 - Shaoda, Helical refinement
 	if (do_helical_refine)
@@ -1522,6 +1553,7 @@ void MlOptimiser::initialiseGeneral(int rank)
 		if (do_helical_symmetry_local_refinement)
 			REPORT_ERROR("ERROR: cannot do local refinement of helical parameters for non-helical segments!");
 	}
+    TIME_POINT(initialiseGeneral);
 	if ( (mymodel.ref_dim == 2) && (helical_tube_outer_diameter > 0.) && (particle_diameter < helical_tube_outer_diameter) )
 		REPORT_ERROR("ERROR: 2D classification: Helical tube diameter should be smaller than particle diameter!");
 
@@ -1535,6 +1567,8 @@ void MlOptimiser::initialiseGeneral(int rank)
 		fix_tau = true;
 		mymodel.readTauSpectrum(fn_tau, verb);
 	}
+
+    TIME_POINT(initialiseGeneral);
 
 	if (do_auto_refine)
 	{
@@ -1571,11 +1605,15 @@ void MlOptimiser::initialiseGeneral(int rank)
 
 	}
 
+    TIME_POINT(initialiseGeneral);
+
 	// Initialise the sampling object (sets prior mode and fills translations and rotations inside sampling object)
 	// May06,2015 - Shaoda & Sjors, initialise for helical translations
 	bool do_local_searches = ((do_auto_refine) && (sampling.healpix_order >= autosampling_hporder_local_searches));
 	sampling.initialise(mymodel.orientational_prior_mode, mymodel.ref_dim, (mymodel.data_dim == 3), do_gpu, (verb>0),
 			do_local_searches, (do_helical_refine) && (!ignore_helical_symmetry), helical_rise_initial / mymodel.pixel_size, helical_twist_initial);
+
+    TIME_POINT(initialiseGeneral);
 
 	// Now that sampling is initialised, also modify sigma2_rot for the helical refinement
         if (do_auto_refine && do_helical_refine && !ignore_helical_symmetry && iter == 0 && sampling.healpix_order >= autosampling_hporder_local_searches)
@@ -1584,6 +1622,8 @@ void MlOptimiser::initialiseGeneral(int rank)
 		RFLOAT rottilt_step = sampling.getAngularSampling(adaptive_oversampling);
 		mymodel.sigma2_rot = getHelicalSigma2Rot((helical_rise_initial / mymodel.pixel_size), helical_twist_initial, sampling.helical_offset_step, rottilt_step, mymodel.sigma2_rot);
 	}
+
+    TIME_POINT(initialiseGeneral);
 
 	// Default max_coarse_size is original size
 	if (max_coarse_size < 0)
@@ -1638,21 +1678,26 @@ void MlOptimiser::initialiseGeneral(int rank)
 		sampling.psi_angles.push_back(psi);
 		directions_have_changed = true;
     }
+    TIME_POINT(initialiseGeneral);
     if (do_skip_align)
 	{
 		RFLOAT dummy=0.;
 		sampling.addOneTranslation(dummy, dummy, dummy, true);
 		do_shifts_onthefly = false; // on-the-fly shifts are incompatible with do_skip_align!
 	}
+    TIME_POINT(initialiseGeneral);
     if ( (do_bimodal_psi) && (mymodel.sigma2_psi > 0.) && (verb > 0) )
     	std::cout << " Using bimodal priors on the psi angle..." << std::endl;
 
 	// Resize the pdf_direction arrays to the correct size and fill with an even distribution
 	if (directions_have_changed)
 		mymodel.initialisePdfDirection(sampling.NrDirections());
+    TIME_POINT(initialiseGeneral);
 
 	// Initialise the wsum_model according to the mymodel
 	wsum_model.initialise(mymodel, sampling.symmetryGroup(), asymmetric_padding, skip_gridding);
+
+    TIME_POINT(initialiseGeneral);
 
 	// Initialise sums of hidden variable changes
 	// In later iterations, this will be done in updateOverallChangesInHiddenVariables
@@ -1685,6 +1730,8 @@ void MlOptimiser::initialiseGeneral(int rank)
 		tab_sin.initialise(100000);
 		tab_cos.initialise(100000);
 	}
+
+    TIME_POINT(initialiseGeneral);
 
 	// Skip scale correction if there are no groups
 	if (mymodel.nr_groups == 1 && !do_realign_movies)
@@ -1720,6 +1767,8 @@ void MlOptimiser::initialiseGeneral(int rank)
 	{
 	    mu = 0.;
 	}
+
+    TIME_POINT(initialiseGeneral);
 
 #ifdef DEBUG
 	std::cerr << "Leaving initialiseGeneral" << std::endl;
@@ -2664,15 +2713,24 @@ void MlOptimiser::expectationSetup()
 	std::cerr << "Entering expectationSetup" << std::endl;
 #endif
 
+    TIME_POINT_INIT(expectationSetup);
+
 	// Re-initialise the random seed, because with a noisy_mask, inside the previous iteration different timings of different MPI nodes may have given rise to different number of calls to ran1
 	// Use the iteration number so that each iteration has a different random seed
 	init_random_generator(random_seed + iter);
 
+    TIME_POINT(expectationSetup);
+
 	// Reset the random perturbation for this sampling
 	sampling.resetRandomlyPerturbedSampling();
 
+    TIME_POINT(expectationSetup);
+    TIME_COUT(expectationSetup) << !fix_tau << " " << nr_threads << " " << do_gpu << endl;
+
     // Initialise Projectors and fill vector with power_spectra for all classes
 	mymodel.setFourierTransformMaps(!fix_tau, nr_threads, do_gpu);
+
+    TIME_POINT(expectationSetup);
 
 	// TMP for helices of Anthiony 12 july 2016
 	if (debug1 > 0.)
@@ -2681,8 +2739,12 @@ void MlOptimiser::expectationSetup()
 			mymodel.PPref[iclass].applyFourierMask((int)debug1, (int)debug2, debug3);
 	}
 
+    TIME_POINT(expectationSetup);
+
 	// Initialise all weighted sums to zero
 	wsum_model.initZeros();
+
+    TIME_POINT(expectationSetup);
 
 	// If we're doing SGD with gradual decrease of sigma2_fudge: calculate current fudge-factor here
 	if (nr_subsets > 1 && sgd_sigma2fudge_halflife > 0)
@@ -2695,6 +2757,7 @@ void MlOptimiser::expectationSetup()
 		sigma2_fudge = f + (1. - f) * sgd_sigma2fudge_ini;
 	}
 
+    TIME_POINT(expectationSetup);
 }
 
 void MlOptimiser::expectationSetupCheckMemory(int myverb)
