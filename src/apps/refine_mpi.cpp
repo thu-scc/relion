@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 #include <src/ml_optimiser_mpi.h>
-
+#include <src/pacman.h>
 
 int main(int argc, char **argv)
 {
@@ -29,6 +29,7 @@ int main(int argc, char **argv)
     {
     	// Read in parameters from the command line
     	optimiser.read(argc, argv);
+        pacman::init();
 
     	// Dirty hack to loop around movies one micrograph at a time
     	if (optimiser.do_movies_in_batches && optimiser.fn_data_movie != "" && optimiser.do_skip_maximization)
