@@ -46,7 +46,6 @@
 #ifndef __RELIONFFTW_H
 #define __RELIONFFTW_H
 
-#include <omp.h>
 #include <cstdlib>
 #include <fftw3.h>
 #include <cstring>

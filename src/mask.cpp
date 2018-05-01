@@ -25,10 +25,14 @@ void softMaskOutsideMap(MultidimArray<RFLOAT> &vol, RFLOAT radius, RFLOAT cosine
 {
 
 	vol.setXmippOrigin();
-	RFLOAT r, radius_p, raisedcos, sum_bg = 0., sum = 0.;
+	RFLOAT radius_p, raisedcos, sum_bg = 0., sum = 0.;
 	if (radius < 0)
 		radius = (RFLOAT)XSIZE(vol)/2.;
 	radius_p = radius + cosine_width;
+
+	long long sqr_ijk;
+	RFLOAT sqr_radius = radius * radius;
+	RFLOAT sqr_radius_p = radius_p * radius_p;
 
 
 	if (Mnoise == NULL)
@@ -36,17 +40,18 @@ void softMaskOutsideMap(MultidimArray<RFLOAT> &vol, RFLOAT radius, RFLOAT cosine
 		// Calculate average background value
 		FOR_ALL_ELEMENTS_IN_ARRAY3D(vol)
 		{
-			r = sqrt((RFLOAT)(k*k + i*i + j*j));
-			if (r < radius)
+			// r = sqrt((RFLOAT)(k*k + i*i + j*j));
+			sqr_ijk = k * k + i * i + j * j;
+			if (sqr_ijk < sqr_radius)
 				continue;
-			else if (r > radius_p)
+			else if (sqr_ijk > sqr_radius_p)
 			{
 				sum    += 1.;
 				sum_bg += A3D_ELEM(vol, k, i, j);
 			}
 			else
 			{
-				raisedcos = 0.5 + 0.5 * cos(PI * (radius_p - r) / cosine_width );
+				raisedcos = 0.5 + 0.5 * cos(PI * (radius_p - sqrt((RFLOAT)sqr_ijk)) / cosine_width );
 				sum += raisedcos;
 				sum_bg += raisedcos * A3D_ELEM(vol, k, i, j);
 			}
@@ -54,23 +59,45 @@ void softMaskOutsideMap(MultidimArray<RFLOAT> &vol, RFLOAT radius, RFLOAT cosine
 		sum_bg /= sum;
 	}
 
-	// Apply noisy or average background value
-	FOR_ALL_ELEMENTS_IN_ARRAY3D(vol)
-	{
-		r = sqrt((RFLOAT)(k*k + i*i + j*j));
-		if (r < radius)
+	if(Mnoise == NULL) {
+		// Apply noisy or average background value
+		FOR_ALL_ELEMENTS_IN_ARRAY3D(vol)
 		{
-			continue;
+			// r = sqrt((RFLOAT)(k*k + i*i + j*j));
+			sqr_ijk = k * k + i * i + j * j;
+			if (sqr_ijk < sqr_radius)
+			{
+				continue;
+			}
+			else if (sqr_ijk > sqr_radius_p)
+			{
+				A3D_ELEM(vol, k, i, j) = sum_bg;
+			}
+			else
+			{
+				raisedcos = 0.5 + 0.5 * cos(PI * (radius_p - sqrt((RFLOAT)sqr_ijk)) / cosine_width );
+				A3D_ELEM(vol, k, i, j) = (1 - raisedcos) * A3D_ELEM(vol, k, i, j) + raisedcos * sum_bg;
+			}
 		}
-		else if (r > radius_p)
+	} else {
+		// Apply noisy or average background value
+		FOR_ALL_ELEMENTS_IN_ARRAY3D(vol)
 		{
-			A3D_ELEM(vol, k, i, j) = (Mnoise == NULL) ? sum_bg : A3D_ELEM(*Mnoise, k, i, j);
-		}
-		else
-		{
-			raisedcos = 0.5 + 0.5 * cos(PI * (radius_p - r) / cosine_width );
-			RFLOAT add = (Mnoise == NULL) ?  sum_bg : A3D_ELEM(*Mnoise, k, i, j);
-			A3D_ELEM(vol, k, i, j) = (1 - raisedcos) * A3D_ELEM(vol, k, i, j) + raisedcos * add;
+			// r = sqrt((RFLOAT)(k*k + i*i + j*j));
+			sqr_ijk = k * k + i * i + j * j;
+			if (sqr_ijk < sqr_radius)
+			{
+				continue;
+			}
+			else if (sqr_ijk > sqr_radius_p)
+			{
+				A3D_ELEM(vol, k, i, j) = A3D_ELEM(*Mnoise, k, i, j);
+			}
+			else
+			{
+				raisedcos = 0.5 + 0.5 * cos(PI * (radius_p - sqrt((RFLOAT)sqr_ijk)) / cosine_width );
+				A3D_ELEM(vol, k, i, j) = (1 - raisedcos) * A3D_ELEM(vol, k, i, j) + raisedcos * A3D_ELEM(*Mnoise, k, i, j);
+			}
 		}
 	}
 
