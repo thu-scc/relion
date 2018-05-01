@@ -371,13 +371,17 @@ void MlModel::write(FileName fn_out, HealpixSampling &sampling, bool do_write_bi
     }
     else
     {
-    	Image<RFLOAT> img;
-    	// Set correct voxel size in the header
-		img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_X, pixel_size);
-		img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_Y, pixel_size);
-		img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_Z, pixel_size);
+        #pragma omp parallel for
     	for (int iclass = 0; iclass < nr_classes_bodies; iclass++)
     	{
+            std::cout << "parallel write start " << iclass << std::endl;
+            
+    	    Image<RFLOAT> img;
+    	    // Set correct voxel size in the header
+		    img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_X, pixel_size);
+		    img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_Y, pixel_size);
+		    img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_Z, pixel_size);
+
     		if (nr_bodies > 1)
     			fn_tmp.compose(fn_out+"_body", iclass+1, "mrc", 3);
     		else
@@ -385,7 +389,15 @@ void MlModel::write(FileName fn_out, HealpixSampling &sampling, bool do_write_bi
 
     		img() = Iref[iclass];
     		img.write(fn_tmp);
+            
+            std::cout << "parallel write end " << iclass << std::endl;
     	}
+
+    	Image<RFLOAT> img;
+    	// Set correct voxel size in the header
+		img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_X, pixel_size);
+		img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_Y, pixel_size);
+		img.MDMainHeader.setValue(EMDL_IMAGE_SAMPLINGRATE_Z, pixel_size);
     	if (do_sgd)
     	{
 			for (int iclass = 0; iclass < nr_classes; iclass++)
