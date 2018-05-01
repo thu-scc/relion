@@ -1,6 +1,6 @@
 include_directories("${CMAKE_SOURCE_DIR}")
 
-include_directories("${FFTW_INCLUDES}")
+# include_directories("${FFTW_INCLUDES}")
 #include_directories(${CMAKE_BINARY_DIR}/include)
 
 find_path (X11_INCLUDES Xdbe.h)
@@ -84,15 +84,15 @@ if (CUDA_FOUND)
         set_target_properties(relion_gpu_util PROPERTIES LINK_FLAGS "${new_link_flags}")
     endif()
 
-    list(APPEND EXTRA_LIBS "${CUDA_CUFFT_LIBRARIES}")
+    list(APPEND EXTRA_LIBS "${CUDA_CUFFT_LIBRARIES}" "${RELION_FFTW_LIB}")
     if(BUILD_SHARED_LIBS)
         install (TARGETS relion_gpu_util LIBRARY DESTINATION lib)
     else()
 	    target_link_libraries(relion_gpu_util relion_lib)
-	    target_link_libraries(relion_gpu_util ${CUDA_CUFFT_LIBRARIES})
+	    target_link_libraries(relion_gpu_util ${CUDA_CUFFT_LIBRARIES} ${RELION_FFTW_LIB})
     endif()
     
-    target_link_libraries(relion_lib relion_gpu_util ${CUDA_CUFFT_LIBRARIES})
+    target_link_libraries(relion_lib relion_gpu_util ${CUDA_CUFFT_LIBRARIES} ${RELION_FFTW_LIB})
     
 endif(CUDA_FOUND)
 

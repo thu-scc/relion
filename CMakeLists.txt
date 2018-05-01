@@ -208,16 +208,16 @@ if(GUI)
 endif(GUI)
 
 # ------------------------------------------------------------------------------FFTW--
-option(FORCE_OWN_FFTW "FORCE_OWN_FFTW" OFF)
+# option(FORCE_OWN_FFTW "FORCE_OWN_FFTW" OFF)
 
-if(NOT FORCE_OWN_FFTW)
-	FIND_PACKAGE(FFTW)
-endif(NOT FORCE_OWN_FFTW)
+# if(NOT FORCE_OWN_FFTW)
+	# FIND_PACKAGE(FFTW)
+# endif(NOT FORCE_OWN_FFTW)
 	
-if(NOT FFTW_FOUND)
-	message(STATUS "No FFTW installation was found")
-	include(${CMAKE_SOURCE_DIR}/cmake/BuildFFTW.cmake)
-endif(NOT FFTW_FOUND)
+# if(NOT FFTW_FOUND)
+	# message(STATUS "No FFTW installation was found")
+	# include(${CMAKE_SOURCE_DIR}/cmake/BuildFFTW.cmake)
+# endif(NOT FFTW_FOUND)
 
 include(CheckCXXSymbolExists)
 check_cxx_symbol_exists(sincos    math.h   HAVE_SINCOS)
