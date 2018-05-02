@@ -573,7 +573,7 @@ private:
 
 		if (totalSize > 0)
 		{
-			HANDLE_ERROR(cudaMalloc( (void**) &(first->ptr), totalSize));
+			while (cudaMalloc( (void**) &(first->ptr), totalSize) != cudaSuccess) usleep(1);
 			cache = true;
 		}
 		else
@@ -668,7 +668,7 @@ public:
 							break; //Success
 					}
 					else
-						usleep(10000); // 10 ms, Order of magnitude of largest kernels
+						usleep(1); // 10 ms, Order of magnitude of largest kernels
 				}
 	#ifdef DEBUG_CUDA
 				spaceDiff =  _getTotalFreeSpace() - spaceDiff;

@@ -967,6 +967,8 @@ void MlOptimiserMpi::expectation()
 			else
 				allocationSize = free - required_free;
 
+            allocationSize = GPU_THREAD_MEMORY_ALLOC_MB * 1000 * 1000;
+
 			if (allocationSize < 200000000)
 				printf("WARNING: The available space on the GPU after initialization (%zu MB) might be insufficient for the expectation step.\n", allocationSize/1000000);
 
