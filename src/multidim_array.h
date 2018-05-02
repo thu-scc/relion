@@ -702,8 +702,8 @@ public:
         }
         else
         {
-            // data = new T [nzyxdim]; modify ***
-            data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
+            data = new T [nzyxdim];
+            // data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
             if (data == NULL)
                 REPORT_ERROR( "Allocate: No space left");
         }
@@ -744,8 +744,8 @@ public:
         }
         else
         {
-            // data = new T [nzyxdim];
-            data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
+            data = new T [nzyxdim];
+            // data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
             if (data == NULL)
                 REPORT_ERROR( "Allocate: No space left");
         }
@@ -776,8 +776,8 @@ public:
                 remove(mapFile.c_str());
             }
             else
-                // delete[] data;
-                free(data);
+                delete[] data;
+                // free(data);
         }
         data=NULL;
         nzyxdimAlloc = 0;
@@ -924,8 +924,8 @@ public:
         // data = new T[nzyxdim];
         data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
         memcpy(data, old_array, sizeof(T) * nzyxdim);
-        // delete[] old_array;
-        free(old_array);
+        delete[] old_array;
+        // free(old_array);
         nzyxdimAlloc = nzyxdim;
     }
 
@@ -1060,8 +1060,8 @@ public:
                     REPORT_ERROR("MultidimArray::resize: mmap failed.");
             }
             else
-                // new_data = new T [NZYXdim];
-                new_data = (T *) aligned_alloc(sizeof(T) * NZYXdim, 64);
+                new_data = new T [NZYXdim];
+                // new_data = (T *) aligned_alloc(sizeof(T) * NZYXdim, 64);
         }
         catch (std::bad_alloc &)
         {
@@ -1150,8 +1150,8 @@ public:
                     REPORT_ERROR("MultidimArray::resize: mmap failed.");
             }
             else
-               // new_data = new T [NZYXdim];
-                new_data = (T *) aligned_alloc(sizeof(T) * NZYXdim, 64);
+               new_data = new T [NZYXdim];
+            // new_data = (T *) aligned_alloc(sizeof(T) * NZYXdim, 64);
         }
         catch (std::bad_alloc &)
         {
