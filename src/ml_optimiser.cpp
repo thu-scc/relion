@@ -1333,7 +1333,7 @@ void MlOptimiser::initialiseGeneral(int rank)
 		if (do_realign_movies)
 			do_preread = false; // as we will overwrite mydata.read with the movies anyway....
 		bool is_helical_segment = (do_helical_refine) || ((mymodel.ref_dim == 2) && (helical_tube_outer_diameter > 0.));
-		mydata.read(fn_data, true, false, do_preread, is_helical_segment); // true means ignore original particle name
+		mydata.read_parallel(fn_data, true, false, do_preread, is_helical_segment); // true means ignore original particle name
 
 		if (fn_body_masks != "")
 		{
