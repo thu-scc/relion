@@ -1576,11 +1576,12 @@ void Experiment::read_parallel(FileName fn_exp, bool do_ignore_original_particle
                 //std::cout << "debug : send " << pacman::rank << " " << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
                 MPI_Send(MULTIDIM_ARRAY(particles[part_id].img), MULTIDIM_SIZE(particles[part_id].img), MPI_FLOAT, 0, 2, MPI_COMM_WORLD);
             } else if (part_id % pacman::size != pacman::rank && pacman::rank == 0) {
+                MPI_Status status;
                 long int dims[4];
-                MPI_Recv(dims, sizeof(dims), MPI_BYTE, part_id % pacman::size, 1, MPI_COMM_WORLD, NULL);
+                MPI_Recv(dims, sizeof(dims), MPI_BYTE, part_id % pacman::size, 1, MPI_COMM_WORLD, &status);
                 //std::cout << "debug : recv " << part_id % pacman::size << " " << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
                 particles[part_id].img.coreAllocate(dims[0], dims[1], dims[2], dims[3]);
-                MPI_Recv(MULTIDIM_ARRAY(particles[part_id].img), MULTIDIM_SIZE(particles[part_id].img), MPI_FLOAT, part_id % pacman::size, 2, MPI_COMM_WORLD, NULL);
+                MPI_Recv(MULTIDIM_ARRAY(particles[part_id].img), MULTIDIM_SIZE(particles[part_id].img), MPI_FLOAT, part_id % pacman::size, 2, MPI_COMM_WORLD, &status);
                 particles[part_id].img.setXmippOrigin();
             }
         }
