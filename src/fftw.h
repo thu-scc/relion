@@ -47,7 +47,6 @@
 #define __RELIONFFTW_H
 
 #include <mpi.h>
-#include <omp.h>
 #include <cstdlib>
 #include <fftw3.h>
 #include <cstring>
@@ -546,7 +545,7 @@ void randomizePhasesBeyond(MultidimArray<RFLOAT> &I, int index);
  */
 template <typename T>
 void CenterFFT(MultidimArray<T> &v, bool forward, int n_threads = 2) {
-  omp_set_num_threads(n_threads);
+  // omp_set_num_threads(n_threads);
   switch (v.getDim()) {
    case 1:
      globalmVector.resize(XSIZE(v) * sizeof(T));

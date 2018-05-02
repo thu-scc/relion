@@ -19,6 +19,7 @@
  ***************************************************************************/
 #include "src/complex.h"
 
+/*
 // Constructor with two arguments
 Complex::Complex(RFLOAT _r, RFLOAT _i)
 {
@@ -91,7 +92,6 @@ Complex operator+(const Complex& lhs, const Complex& rhs)
 Complex operator-(const Complex& lhs, const Complex& rhs)
 {
 	return Complex(lhs.real - rhs.real, lhs.imag - rhs.imag);
-
 }
 
 Complex operator*(const Complex& lhs, const Complex& rhs)
@@ -162,3 +162,4 @@ RFLOAT arg(const Complex& op)
 {
 	return atan2(op.imag, op.real);
 }
+*/

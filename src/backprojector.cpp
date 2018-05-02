@@ -25,6 +25,7 @@
  */
 
 #include "src/backprojector.h"
+#include <xmmintrin.h>
 
 #ifdef TIMING
 	#define RCTIC(timer,label) (timer.tic(label))
@@ -1495,9 +1496,7 @@ void BackProjector::applyPointGroupSymmetry()
         RFLOAT x, y, z, fx, fy, fz, xp, yp, zp, r2;
         bool is_neg_x;
         int x0, x1, y0, y1, z0, z1;
-    	Complex d000, d001, d010, d011, d100, d101, d110, d111;
     	Complex dx00, dx01, dx10, dx11, dxy0, dxy1;
-    	RFLOAT dd000, dd001, dd010, dd011, dd100, dd101, dd110, dd111;
     	RFLOAT ddx00, ddx01, ddx10, ddx11, ddxy0, ddxy1;
 
         // First symmetry operator (not stored in SL) is the identity matrix
@@ -1512,6 +1511,7 @@ void BackProjector::applyPointGroupSymmetry()
 #endif
 
 	        // Loop over all points in the output (i.e. rotated, or summed) array
+# pragma ivdep
 	        FOR_ALL_ELEMENTS_IN_ARRAY3D(sum_weight)
 	        {
 
@@ -1570,20 +1570,12 @@ void BackProjector::applyPointGroupSymmetry()
 					}
 #endif
 					// First interpolate (complex) data
-					d000 = DIRECT_A3D_ELEM(data, z0, y0, x0);
-					d001 = DIRECT_A3D_ELEM(data, z0, y0, x1);
-					d010 = DIRECT_A3D_ELEM(data, z0, y1, x0);
-					d011 = DIRECT_A3D_ELEM(data, z0, y1, x1);
-					d100 = DIRECT_A3D_ELEM(data, z1, y0, x0);
-					d101 = DIRECT_A3D_ELEM(data, z1, y0, x1);
-					d110 = DIRECT_A3D_ELEM(data, z1, y1, x0);
-					d111 = DIRECT_A3D_ELEM(data, z1, y1, x1);
 
-					dx00 = LIN_INTERP(fx, d000, d001);
-					dx01 = LIN_INTERP(fx, d100, d101);
-					dx10 = LIN_INTERP(fx, d010, d011);
-					dx11 = LIN_INTERP(fx, d110, d111);
-					dxy0 = LIN_INTERP(fy, dx00, dx10);
+					dx00 = LIN_INTERP(fx, DIRECT_A3D_ELEM(data, z0, y0, x0), DIRECT_A3D_ELEM(data, z0, y0, x1));
+                    dx10 = LIN_INTERP(fx, DIRECT_A3D_ELEM(data, z0, y1, x0), DIRECT_A3D_ELEM(data, z0, y1, x1));
+                    dxy0 = LIN_INTERP(fy, dx00, dx10);
+					dx01 = LIN_INTERP(fx, DIRECT_A3D_ELEM(data, z1, y0, x0), DIRECT_A3D_ELEM(data, z1, y0, x1));
+					dx11 = LIN_INTERP(fx, DIRECT_A3D_ELEM(data, z1, y1, x0), DIRECT_A3D_ELEM(data, z1, y1, x1));
 					dxy1 = LIN_INTERP(fy, dx01, dx11);
 
 					// Take complex conjugated for half with negative x
@@ -1593,20 +1585,12 @@ void BackProjector::applyPointGroupSymmetry()
 						A3D_ELEM(sum_data, k, i, j) += LIN_INTERP(fz, dxy0, dxy1);
 
 					// Then interpolate (real) weight
-					dd000 = DIRECT_A3D_ELEM(weight, z0, y0, x0);
-					dd001 = DIRECT_A3D_ELEM(weight, z0, y0, x1);
-					dd010 = DIRECT_A3D_ELEM(weight, z0, y1, x0);
-					dd011 = DIRECT_A3D_ELEM(weight, z0, y1, x1);
-					dd100 = DIRECT_A3D_ELEM(weight, z1, y0, x0);
-					dd101 = DIRECT_A3D_ELEM(weight, z1, y0, x1);
-					dd110 = DIRECT_A3D_ELEM(weight, z1, y1, x0);
-					dd111 = DIRECT_A3D_ELEM(weight, z1, y1, x1);
 
-					ddx00 = LIN_INTERP(fx, dd000, dd001);
-					ddx01 = LIN_INTERP(fx, dd100, dd101);
-					ddx10 = LIN_INTERP(fx, dd010, dd011);
-					ddx11 = LIN_INTERP(fx, dd110, dd111);
-					ddxy0 = LIN_INTERP(fy, ddx00, ddx10);
+					ddx00 = LIN_INTERP(fx, DIRECT_A3D_ELEM(weight, z0, y0, x0), DIRECT_A3D_ELEM(weight, z0, y0, x1));
+                    ddx10 = LIN_INTERP(fx, DIRECT_A3D_ELEM(weight, z0, y1, x0), DIRECT_A3D_ELEM(weight, z0, y1, x1));
+                    ddxy0 = LIN_INTERP(fy, ddx00, ddx10);
+					ddx01 = LIN_INTERP(fx, DIRECT_A3D_ELEM(weight, z1, y0, x0), DIRECT_A3D_ELEM(weight, z1, y0, x1));
+					ddx11 = LIN_INTERP(fx, DIRECT_A3D_ELEM(weight, z1, y1, x0), DIRECT_A3D_ELEM(weight, z1, y1, x1));
 					ddxy1 = LIN_INTERP(fy, ddx01, ddx11);
 
 					A3D_ELEM(sum_weight, k, i, j) +=  LIN_INTERP(fz, ddxy0, ddxy1);

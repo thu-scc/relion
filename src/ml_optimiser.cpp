@@ -4321,6 +4321,7 @@ void MlOptimiser::getFourierTransformsAndCtfs(long int my_ori_particle, int ibod
 			if (do_preread_images)
 			{
                 img().reshape(mydata.particles[part_id].img);
+#pragma ivdep
 				FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mydata.particles[part_id].img)
 				{
                 	DIRECT_MULTIDIM_ELEM(img(), n) = (RFLOAT)DIRECT_MULTIDIM_ELEM(mydata.particles[part_id].img, n);
@@ -8269,6 +8270,7 @@ void MlOptimiser::getMetaAndImageDataSubset(int first_ori_particle_id, int last_
 				if (do_preread_images)
 				{
 					img().reshape(mydata.particles[part_id].img);
+# pragma ivdep
 					FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mydata.particles[part_id].img)
 					{
 						DIRECT_MULTIDIM_ELEM(img(), n) = (RFLOAT)DIRECT_MULTIDIM_ELEM(mydata.particles[part_id].img, n);
