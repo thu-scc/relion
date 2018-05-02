@@ -703,6 +703,7 @@ public:
         else
         {
             data = new T [nzyxdim];
+            // data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
             if (data == NULL)
                 REPORT_ERROR( "Allocate: No space left");
         }
@@ -744,6 +745,7 @@ public:
         else
         {
             data = new T [nzyxdim];
+            // data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
             if (data == NULL)
                 REPORT_ERROR( "Allocate: No space left");
         }
@@ -775,6 +777,7 @@ public:
             }
             else
                 delete[] data;
+                // free(data);
         }
         data=NULL;
         nzyxdimAlloc = 0;
@@ -918,9 +921,11 @@ public:
         if (data == NULL || mmapOn || nzyxdim <= 0 || nzyxdimAlloc <= nzyxdim)
             return;
         T* old_array = data;
-        data = new T[nzyxdim];
+        // data = new T[nzyxdim];
+        data = (T *) aligned_alloc(sizeof(T) * nzyxdim, 64);
         memcpy(data, old_array, sizeof(T) * nzyxdim);
         delete[] old_array;
+        // free(old_array);
         nzyxdimAlloc = nzyxdim;
     }
 
@@ -1056,6 +1061,7 @@ public:
             }
             else
                 new_data = new T [NZYXdim];
+                // new_data = (T *) aligned_alloc(sizeof(T) * NZYXdim, 64);
         }
         catch (std::bad_alloc &)
         {
@@ -1144,7 +1150,8 @@ public:
                     REPORT_ERROR("MultidimArray::resize: mmap failed.");
             }
             else
-                new_data = new T [NZYXdim];
+               new_data = new T [NZYXdim];
+            // new_data = (T *) aligned_alloc(sizeof(T) * NZYXdim, 64);
         }
         catch (std::bad_alloc &)
         {

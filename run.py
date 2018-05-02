@@ -1,19 +1,31 @@
 hosts = ["i1", "i3", "i4", "i5"]
 n_gpus_per_host = 2
-n_gpu_slaves = 8
-n_cpu_slaves = 56
+n_slaves_per_gpu = 6
+n_gpu_slaves_per_gpu = 1
 
 source_dir = "/home/sc/ssd/SC17/RELION_challenge_data"
 working_dir = "/dev/shm/relion_work"
+do_copy = False
 
 gpu_cmd = "/home/yjp/relion/relion_gpu_fftw"
 cpu_cmd = "/home/yjp/relion/relion_cpu_fftw"
-output_dir = "Class3D/job007/"
-args = "--o " + output_dir + " --i particles.star --ref run_ct24_class001.mrc --firstiter_cc --ini_high 40 --ctf --iter 40 --tau2_fudge 4 --particle_diameter 150 --K 4 --flatten_solvent --zero_mask --strict_highres_exp 10 --oversampling 1 --healpix_order 1 --sigma_ang 0.3 --offset_range 5 --offset_step 2 --sym O --norm --scale --pool 100 --dont_combine_weights_via_disc --preread_images --no_parallel_disc_io --gpu"
+# gpu_cmd = "xterm -e gdb -ex=r --args /home/yjp/relion/relion_gpu_fftw"
+# cpu_cmd = "xterm -e gdb -ex=r --args /home/yjp/relion/relion_cpu_fftw"
+
+# output_dir = "Class3D/job007/"
+# args = "--o " + output_dir + " --i particles.star --ref run_ct24_class001.mrc --firstiter_cc --ini_high 40 --ctf --iter 40 --tau2_fudge 4 --particle_diameter 150 --K 4 --flatten_solvent --zero_mask --strict_highres_exp 10 --oversampling 1 --healpix_order 1 --sigma_ang 0.3 --offset_range 5 --offset_step 2 --sym O --norm --scale --pool 100 --dont_combine_weights_via_disc --preread_images --no_parallel_disc_io --gpu"
+output_dir = "Refine3D/job007/"
+args = "--o " + output_dir + " --auto_refine --split_random_halves --i particles.star --ref run_ct24_class001.mrc --firstiter_cc --ini_high 40 --ctf --particle_diameter 150 --flatten_solvent --zero_mask --oversampling 1 --healpix_order 1 --auto_local_healpix_order 5 --offset_range 5 --offset_step 2 --sym O --low_resol_join_halves 40 --norm --scale --pool 100 --dont_combine_weights_via_disc --preread_images --no_parallel_disc_io --gpu"
 
 tmp_dir = "/home/yjp/tmp"
-tmp_file_id = 0
+
 gpurun_sh = tmp_dir + "/gpurun.sh"
+tmp_file_id = 0
+
+n_cpu_slaves_per_gpu = n_slaves_per_gpu - n_gpu_slaves_per_gpu
+n_gpus = n_gpus_per_host * len(hosts)
+n_gpu_slaves = n_gpus * n_gpu_slaves_per_gpu
+n_cpu_slaves = n_gpus * n_cpu_slaves_per_gpu
 
 import os
 import time
@@ -49,7 +61,8 @@ def alloc_gpu_gen():
 				yield (host, gpu)
 
 system("mkdir " + tmp_dir);
-# foreach_host("cp -r " + source_dir + " " + working_dir)
+if do_copy:
+	foreach_host("cp -r " + source_dir + " " + working_dir)
 write_script(
 	"cd " + working_dir + "\n" +
 	"mkdir -p " + output_dir + "\n" +
@@ -61,7 +74,7 @@ write_script(
 	gpurun_sh
 )
 
-foreach_host("killall nvidia-cuda-mps-control")
+foreach_host("sudo killall nvidia-cuda-mps-server nvidia-cuda-mps-control")
 for gpu in range(n_gpus_per_host):
 	foreach_host("mkdir " + mps_pipe(gpu))
 	foreach_host(
@@ -82,4 +95,7 @@ for cpu_slave in range(n_cpu_slaves):
 	host, gpu = alloc_gpu.next()
 	cmd = cmd + " : --host " + host + " -n 1 " + \
 			gpurun_sh + " " + mps_pipe(gpu) + " " + cpu_cmd + " " + args
+cmd = cmd + " | tee log"
 system(cmd)
+
+foreach_host("sudo killall nvidia-cuda-mps-server nvidia-cuda-mps-control")
