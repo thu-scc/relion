@@ -86,5 +86,6 @@
 
 //The approximate minimum amount of memory each process occupies on a device (in MBs)
 #define GPU_THREAD_MEMORY_OVERHEAD_MB 200
+#define GPU_THREAD_MEMORY_ALLOC_MB 150
 
 #endif /* CUDA_SETTINGS_H_ */

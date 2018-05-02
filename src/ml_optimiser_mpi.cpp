@@ -955,6 +955,7 @@ void MlOptimiserMpi::expectation()
 
 			size_t free, total, allocationSize;
 			HANDLE_ERROR(cudaMemGetInfo( &free, &total ));
+            std::cerr << std::endl << "Rank " << node->rank << " CurrentGPUFreeMemory " << double(free)/1024/1024 << "MB" << std::endl;
 
 			free = (float) free / (float)cudaDeviceShares[i];
 			size_t required_free = requested_free_gpu_memory + GPU_THREAD_MEMORY_OVERHEAD_MB*1000*1000*threadcountOnDevice[i];
@@ -966,6 +967,8 @@ void MlOptimiserMpi::expectation()
 			}
 			else
 				allocationSize = free - required_free;
+
+            allocationSize = GPU_THREAD_MEMORY_ALLOC_MB * 1000 * 1000;
 
 			if (allocationSize < 200000000)
 				printf("WARNING: The available space on the GPU after initialization (%zu MB) might be insufficient for the expectation step.\n", allocationSize/1000000);
