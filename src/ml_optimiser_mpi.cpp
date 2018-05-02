@@ -955,6 +955,7 @@ void MlOptimiserMpi::expectation()
 
 			size_t free, total, allocationSize;
 			HANDLE_ERROR(cudaMemGetInfo( &free, &total ));
+            std::cerr << std::endl << "Rank " << node->rank << " CurrentGPUFreeMemory " << double(free)/1024/1024 << "MB" << std::endl;
 
 			free = (float) free / (float)cudaDeviceShares[i];
 			size_t required_free = requested_free_gpu_memory + GPU_THREAD_MEMORY_OVERHEAD_MB*1000*1000*threadcountOnDevice[i];
