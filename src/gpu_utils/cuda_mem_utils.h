@@ -573,7 +573,16 @@ private:
 
 		if (totalSize > 0)
 		{
-			while (cudaMalloc( (void**) &(first->ptr), totalSize) != cudaSuccess) usleep(1);
+            bool isFirst = true;
+			while (cudaMalloc( (void**) &(first->ptr), totalSize) != cudaSuccess) 
+            {
+                if(isFirst) 
+                {
+                    std::cerr << std::endl << "Warning: GPUMemoryIsOverFlowing" << std::endl;
+                    isFirst = false;
+                }
+                usleep(1);
+            }
 			cache = true;
 		}
 		else
