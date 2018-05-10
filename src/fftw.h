@@ -134,7 +134,7 @@
 
 class mVector {
 public:
- int curSize;
+ long curSize;
  void* buffer;
 
  mVector() {
@@ -150,7 +150,7 @@ public:
    return;
  }
 
- void resize(int bytes) {
+ void resize(long bytes) {
    if(bytes > curSize) {
      if(!curSize) curSize = 1;
      while(curSize < bytes) {
